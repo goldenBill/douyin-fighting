@@ -3,10 +3,14 @@ package controller
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/goldenBill/douyin-fighting/controller/service"
 	"github.com/goldenBill/douyin-fighting/dao"
+	"github.com/goldenBill/douyin-fighting/global"
 	"github.com/goldenBill/douyin-fighting/util"
 	"net/http"
 	"path/filepath"
+	"strconv"
+	"time"
 )
 
 type VideoListResponse struct {
@@ -14,29 +18,33 @@ type VideoListResponse struct {
 	VideoList []Video `json:"video_list"`
 }
 
-func GetUserInfoByToken(token string) *dao.UserDao {
-	var userDao dao.UserDao
-	sqlStr := "select * from user where token = ?"
-	if err := dao.DataBase.Get(&userDao, sqlStr, token); err != nil {
-		fmt.Println("exec failed, ", err)
-		return nil
-	}
-	return &userDao
-}
-
-func AddNewVideo(videoName, videoLocation, coverLocation string, uploaderId int64) {
-	sqlStr := "insert into video (video_name, video_location, cover_location, uploader_id) values (?, ?, ?, ?)"
-	_, err := dao.DataBase.Exec(sqlStr, videoName, videoLocation, coverLocation, uploaderId)
+func AddNewVideo(videoName, videoLocation, coverLocation string, uploaderId uint64, title string) {
+	sqlStr := "insert into video (video_name, video_location, cover_location, uploader_id, title) values (?, ?, ?, ?, ?)"
+	_, err := global.GVAR_SQLX_DB.Exec(sqlStr, videoName, videoLocation, coverLocation, uploaderId, title)
 	if err != nil {
 		fmt.Println("exec failed, ", err)
 		return
 	}
 }
 
+func GetUserInfoByUserId(userId uint64) *dao.User {
+	var userDao dao.User
+	sqlStr := "select * from user where user_id = ?"
+	if err := global.GVAR_SQLX_DB.Get(&userDao, sqlStr, userId); err != nil {
+		fmt.Println("exec failed, ", err)
+		return nil
+	}
+	return &userDao
+}
+
 // Publish check token then save upload file to public directory
 func Publish(c *gin.Context) {
-	token := c.PostForm("token")
-	userDao := GetUserInfoByToken(token)
+	tokenString := c.PostForm("token")
+	title := c.PostForm("title")
+	token, err := userService.ParseToken(tokenString)
+	claims := token.Claims.(*service.UserClaims)
+	userId := claims.UserID
+	userDao := GetUserInfoByUserId(userId)
 
 	if userDao == nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "User doesn't exist"})
@@ -52,7 +60,7 @@ func Publish(c *gin.Context) {
 		return
 	}
 	filename := filepath.Base(data.Filename)
-	finalName := fmt.Sprintf("%d_%s", userDao.Id, filename)
+	finalName := fmt.Sprintf("%s_%s", userDao.Name, filename)
 	saveFile := filepath.Join("./public/video/", finalName)
 	if err := c.SaveUploadedFile(data, saveFile); err != nil {
 		c.JSON(http.StatusOK, Response{
@@ -66,16 +74,16 @@ func Publish(c *gin.Context) {
 	// 生成封面
 	util.GetFrame("./public"+videoLocation+finalName, "./public"+coverLocation)
 
-	AddNewVideo(finalName, videoLocation, coverLocation, userDao.Id)
+	AddNewVideo(finalName, videoLocation, coverLocation, userDao.Id, title)
 	c.JSON(http.StatusOK, Response{
 		StatusCode: 0,
 		StatusMsg:  finalName + " uploaded successfully",
 	})
 }
 
-func GetVideoDaoListById(userId int64, PublishList *[]dao.VideoDao) {
+func GetVideoDaoListById(userId uint64, PublishList *[]dao.Video) {
 	sqlStr := "select * from video where uploader_id = ? order by id desc"
-	if err := dao.DataBase.Select(PublishList, sqlStr, userId); err != nil {
+	if err := global.GVAR_SQLX_DB.Select(PublishList, sqlStr, userId); err != nil {
 		fmt.Println("exec failed, ", err)
 		return
 	}
@@ -83,27 +91,40 @@ func GetVideoDaoListById(userId int64, PublishList *[]dao.VideoDao) {
 
 // PublishList all users have same publish video list
 func PublishList(c *gin.Context) {
-	token := c.Query("token")
-	userDao := GetUserInfoByToken(token)
+	userId, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
+	tokenString := c.Query("token")
+	if tokenString == "" {
+		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "empty token"})
+		return
+	}
 
-	var videoDaoList []dao.VideoDao
+	token, err := userService.ParseToken(tokenString)
+	claims := token.Claims.(*service.UserClaims)
+	fmt.Println(claims.ExpiresAt.Time, time.Now())
+	if err != nil {
+		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
+		return
+	}
+
+	userDao := GetUserInfoByUserId(userId)
+	var videoDaoList []dao.Video
 	GetVideoDaoListById(userDao.Id, &videoDaoList)
 
 	var videoList []Video
 	for _, videoDao := range videoDaoList {
 
-		var followCount = GetFollowCount(userDao.Id)
-		var followerCount = GetFollowerCount(userDao.Id)
+		var followCount = GetFollowCount(userId)
+		var followerCount = GetFollowerCount(userId)
 		var name = userDao.Name
 		var isFollow = false
 		var author = User{
-			Id:            videoDao.UploaderId,
+			Id:            userId,
 			Name:          name,
 			FollowCount:   followCount,
 			FollowerCount: followerCount,
 			IsFollow:      isFollow,
 		}
-		var favoriteCount = GetFavoriteCount(userDao.Id)
+		var favoriteCount = GetFavoriteCount(userId)
 		var isFavorite = false
 		video := Video{
 			Id:            videoDao.Id,
