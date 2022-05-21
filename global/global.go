@@ -6,13 +6,10 @@ import (
 	"gorm.io/gorm"
 )
 
-type JWT struct {
-	SigningKey string
-}
-
 var (
-	GVAR_SQLX_DB      *sqlx.DB
-	GVAR_DB           *gorm.DB
-	GVAR_JWT          JWT
-	GVAR_ID_GENERATOR *sonyflake.Sonyflake
+	GVAR_SQLX_DB        *sqlx.DB
+	GVAR_DB             *gorm.DB
+	GVAR_ID_GENERATOR   *sonyflake.Sonyflake
+	GVAR_JWT_SigningKey string = "douyin-fighting"     //初始化全局签名
+	GVAR_START_TIME     string = "2022-05-21 00:00:01" //固定启动时间，保证生成 Id 唯一性
 )

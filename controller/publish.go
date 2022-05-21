@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
-	"time"
 )
 
 type VideoListResponse struct {
@@ -98,9 +97,7 @@ func PublishList(c *gin.Context) {
 		return
 	}
 
-	token, err := userService.ParseToken(tokenString)
-	claims := token.Claims.(*service.UserClaims)
-	fmt.Println(claims.ExpiresAt.Time, time.Now())
+	_, err := userService.ParseToken(tokenString)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return

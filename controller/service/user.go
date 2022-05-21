@@ -64,7 +64,7 @@ func (User *User) UserInfo(userId uint64) (*dao.User, error) {
 // GenerateToken : 生成 token
 func (User *User) GenerateToken(user *dao.User) (string, error) {
 	//获取全局签名
-	mySigningKey := []byte(global.GVAR_JWT.SigningKey)
+	mySigningKey := []byte(global.GVAR_JWT_SigningKey)
 	//配置 userClaims ,并生成 token
 	claims := UserClaims{
 		user.Id,
@@ -84,7 +84,7 @@ func (User *User) GenerateToken(user *dao.User) (string, error) {
 // ParseToken : 解析 token
 func (User *User) ParseToken(tokenString string) (*jwt.Token, error) {
 	//获取全局签名
-	mySigningKey := []byte(global.GVAR_JWT.SigningKey)
+	mySigningKey := []byte(global.GVAR_JWT_SigningKey)
 	//解析 token 信息
 	return jwt.ParseWithClaims(tokenString, &UserClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return mySigningKey, nil

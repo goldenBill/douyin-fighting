@@ -9,7 +9,7 @@ type User struct {
 	UserId   uint64    `db:"user_id"`
 	Name     string    `db:"name"`
 	Password string    `db:"password"`
-	CreatAt  time.Time `db:"create_at" gorm:"autoCreateTime:true"`
+	CreateAt time.Time `db:"create_at" gorm:"autoCreateTime:true"`
 	ExtInfo  *string   `db:"ext_info" gorm:"-"`
 }
 

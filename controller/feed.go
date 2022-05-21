@@ -48,7 +48,7 @@ func GetAuthorName(authorId uint64) string {
 	sqlStr := "select name from user where id = ?"
 	if err := global.GVAR_SQLX_DB.Get(&authorName, sqlStr, authorId); err != nil {
 		fmt.Println("exec failed, ", err)
-		return ""
+		return "0"
 	}
 	return authorName
 }
@@ -58,7 +58,7 @@ func GetSkipID(authorId uint64) string {
 	sqlStr := "select user_id from user where id = ?"
 	if err := global.GVAR_SQLX_DB.Get(&authorSkipID, sqlStr, authorId); err != nil {
 		fmt.Println("exec failed, ", err)
-		return ""
+		return "0"
 	}
 	return authorSkipID
 }
