@@ -10,7 +10,7 @@ Target Server Type    : MYSQL
 Target Server Version : 80028
 File Encoding         : 65001
 
-Date: 2022-05-21 13:45:32
+Date: 2022-05-22 05:10:36
 */
 
 SET FOREIGN_KEY_CHECKS=0;
@@ -65,10 +65,12 @@ CREATE TABLE `user` (
   `user_id` bigint unsigned NOT NULL,
   `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `password` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `follow_count` bigint unsigned NOT NULL DEFAULT '0',
+  `follower_count` bigint unsigned NOT NULL DEFAULT '0',
   `create_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `ext_info` text COLLATE utf8mb4_general_ci,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ----------------------------
 -- Table structure for `video`
@@ -83,4 +85,4 @@ CREATE TABLE `video` (
   `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `title` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

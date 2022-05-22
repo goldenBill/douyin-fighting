@@ -2,8 +2,6 @@ package controller
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/goldenBill/douyin-fighting/controller/service"
-	"github.com/goldenBill/douyin-fighting/dao"
 	"net/http"
 	"strconv"
 )
@@ -19,17 +17,13 @@ type UserResponse struct {
 	User User `json:"user"`
 }
 
-//开启 user 服务
-var userService = service.User{}
-
 // Register : 用户注册账号
 func Register(c *gin.Context) {
-	userDao := &dao.User{
-		Name:     c.Query("username"),
-		Password: c.Query("password"),
-	}
+	username := c.Query("username")
+	password := c.Query("password")
 	//注册用户到数据库
-	if err := userService.Register(userDao); err != nil {
+	userDao, err := userService.Register(username, password)
+	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
@@ -48,12 +42,10 @@ func Register(c *gin.Context) {
 
 // Login : 用户登录
 func Login(c *gin.Context) {
-	userDao := &dao.User{
-		Name:     c.Query("username"),
-		Password: c.Query("password"),
-	}
+	username := c.Query("username")
+	password := c.Query("password")
 	//从数据库查询用户信息
-	userDao, err := userService.Login(userDao)
+	userDao, err := userService.Login(username, password)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
@@ -82,7 +74,7 @@ func UserInfo(c *gin.Context) {
 	}
 	//获取指定 userId 的信息
 	userId, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
-	userDao, err := userService.UserInfo(userId)
+	userDao, err := userService.UserInfoByUserId(userId)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return

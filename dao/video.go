@@ -1,6 +1,8 @@
 package dao
 
-import "time"
+import (
+	"time"
+)
 
 type Video struct {
 	Id            uint64    `db:"id"`
@@ -9,5 +11,5 @@ type Video struct {
 	CoverLocation string    `db:"cover_location"`
 	UploaderId    uint64    `db:"uploader_id"`
 	CreateTime    time.Time `db:"create_time"`
-	Title         *string   `db:"title"`
+	Title         string    `db:"title"`
 }
