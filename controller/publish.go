@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/service"
@@ -9,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 )
 
 type VideoListResponse struct {
@@ -17,125 +15,133 @@ type VideoListResponse struct {
 	VideoList []Video `json:"video_list"`
 }
 
-// Publish : check token then save upload file to public directory
+// Publish check token then save upload file to public directory
 func Publish(c *gin.Context) {
-	//验证 Token 合法性，提取ID
 	tokenString := c.PostForm("token")
-	ID, err := service.GetIDFromToken(tokenString)
+	token, err := service.ParseToken(tokenString)
 	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
+		c.JSON(http.StatusForbidden, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
-	//获取 UserInfo
-	userDao, err := service.UserInfoByID(ID)
-	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "User doesn't exist"})
+	claims := token.Claims.(*service.UserClaims)
+	userID := claims.UserID
+	if !service.IsUserIDExist(userID) {
+		c.JSON(http.StatusForbidden, Response{StatusCode: 1, StatusMsg: "User doesn't exist"})
 		return
 	}
-
 	title := c.PostForm("title")
+
 	data, err := c.FormFile("data")
 	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
-		return
-	}
-	filename := filepath.Base(data.Filename)
-	finalName := fmt.Sprintf("%s_%s", userDao.Name, filename)
-	videoDao := dao.Video{
-		Title:    title,
-		PlayUrl:  "/video/" + finalName,
-		CoverUrl: "/cover/" + util.GetFileName(finalName) + ".jpg",
-		UserID:   userDao.UserID,
-		Active:   false,
-	}
-	// 添加到数据库
-	err = service.PublishVideo(&videoDao)
-	if err != nil {
+		// 状态码不确定
 		c.JSON(http.StatusOK, Response{
 			StatusCode: 1,
 			StatusMsg:  err.Error(),
 		})
 		return
 	}
-	//存储视频
-	VideoSavePath := filepath.Join("./public/", videoDao.PlayUrl)
+
+	videoName, coverName, videoID, err := service.PublishVideo(userID, title)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, Response{
+			StatusCode: 1,
+			StatusMsg:  err.Error(),
+		})
+		return
+	}
+
+	VideoSavePath := filepath.Join("./public/", videoName)
+
 	if err := c.SaveUploadedFile(data, VideoSavePath); err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
+		c.JSON(http.StatusInternalServerError, Response{
+			StatusCode: 1,
+			StatusMsg:  err.Error(),
+		})
 		return
 	}
-	//生成封面
-	CoverSavePath := filepath.Join("./public/", videoDao.CoverUrl)
+
+	CoverSavePath := filepath.Join("./public/", coverName)
+
 	if err = util.GetFrame(VideoSavePath, CoverSavePath); err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
+		c.JSON(http.StatusInternalServerError, Response{
+			StatusCode: 1,
+			StatusMsg:  err.Error(),
+		})
 		return
 	}
-	if err = service.SetActive(videoDao.VideoID); err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
+	if err = service.SetActive(videoID); err != nil {
+		c.JSON(http.StatusInternalServerError, Response{
+			StatusCode: 1,
+			StatusMsg:  err.Error(),
+		})
 		return
 	}
-	//成功上传
-	c.JSON(http.StatusOK, Response{StatusCode: 0, StatusMsg: "uploaded successfully"})
+
+	c.JSON(http.StatusOK, Response{
+		StatusCode: 0,
+		StatusMsg:  " uploaded successfully",
+	})
 }
 
 // PublishList all users have same publish video list
 func PublishList(c *gin.Context) {
 	tokenString := c.Query("token")
-	if tokenString == "" {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "empty token"})
-		return
-	}
-	//验证 Token 合法性，提取ID
-	_, err := service.ParseToken(tokenString)
+	token, err := service.ParseToken(tokenString)
 	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
+		c.JSON(http.StatusForbidden, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
-
-	userID, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
-	userDao, err := service.UserInfoByUserID(userID)
-	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "User doesn't exist"})
+	claims := token.Claims.(*service.UserClaims)
+	userID := claims.UserID
+	if !service.IsUserIDExist(userID) {
+		c.JSON(http.StatusForbidden, Response{StatusCode: 1, StatusMsg: "User doesn't exist"})
 		return
 	}
-
-	videoDaoList, err := service.GetPublishedVideos(userID)
-	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
+	var videos []dao.Video
+	if err = service.GetPublishedVideos(&videos, userID); err != nil {
+		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
-
 	var videoList []Video
-	for _, videoDao := range videoDaoList {
-		VideoLocation := "./public/" + videoDao.PlayUrl
+	for _, video_ := range videos {
+		VideoLocation := "./public/" + video_.PlayUrl
 		if _, err := os.Stat(VideoLocation); err != nil {
 			continue
 		}
-		CoverLocation := "./public/" + videoDao.CoverUrl
+		CoverLocation := "./public/" + video_.CoverUrl
 		if _, err := os.Stat(CoverLocation); err != nil {
 			continue
 		}
-		var author = User{
-			ID:            userID,
-			Name:          userDao.Name,
-			FollowCount:   userDao.FollowCount,
-			FollowerCount: userDao.FollowerCount,
-			IsFollow:      false,
+		var author_ dao.UserForFeed
+		if err := service.GetAuthor(&author_, video_.UserID); err != nil {
+			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
+			return
 		}
+		isFollow := false
+		author := User{
+			ID:            author_.UserID,
+			Name:          author_.Name,
+			FollowCount:   author_.FollowerCount,
+			FollowerCount: author_.FollowerCount,
+			IsFollow:      isFollow,
+		}
+		isFavorite := false
 		video := Video{
-			ID:            videoDao.VideoID,
+			ID:            video_.VideoID,
 			Author:        author,
-			PlayUrl:       "http://" + c.Request.Host + "/static" + videoDao.PlayUrl,
-			CoverUrl:      "http://" + c.Request.Host + "/static" + videoDao.CoverUrl,
-			FavoriteCount: videoDao.FavoriteCount,
-			CommentCount:  videoDao.CommentCount,
-			Title:         videoDao.Title,
-			IsFavorite:    false,
+			PlayUrl:       "http://" + c.Request.Host + "/static/" + video_.PlayUrl,
+			CoverUrl:      "http://" + c.Request.Host + "/static/" + video_.CoverUrl,
+			FavoriteCount: video_.FavoriteCount,
+			CommentCount:  video_.CommentCount,
+			Title:         video_.Title,
+			IsFavorite:    isFavorite,
 		}
 		videoList = append(videoList, video)
 	}
-
 	c.JSON(http.StatusOK, VideoListResponse{
-		Response:  Response{StatusCode: 0, StatusMsg: "OK"},
+		Response: Response{
+			StatusCode: 0,
+		},
 		VideoList: videoList,
 	})
 }

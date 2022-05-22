@@ -6,6 +6,7 @@ import (
 	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
 	"github.com/goldenBill/douyin-fighting/util"
+	"gorm.io/gorm"
 	"time"
 )
 
@@ -116,4 +117,14 @@ func UserInfoByID(ID uint64) (user *dao.User, err error) {
 	}
 	err = nil
 	return
+}
+
+//
+func IsUserIDExist(userID uint64) bool {
+	var user dao.UserCheck
+	err := global.GVAR_DB.Model(&dao.User{}).Where("user_id = ?", userID).Take(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false
+	}
+	return true
 }

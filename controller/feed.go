@@ -2,6 +2,7 @@ package controller
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/service"
 	"net/http"
 	"os"
@@ -15,67 +16,65 @@ type FeedResponse struct {
 	NextTime  int64   `json:"next_time,omitempty"`
 }
 
-// Feed : same demo video list for every request
+// Feed same demo video list for every request
 func Feed(c *gin.Context) {
-	//// token 验证
-	//var tokenString = c.DefaultQuery("token", "")
-	//if tokenString != "" {
-	//	_, err := service.ParseToken(tokenString)
-	//	if err != nil {
-	//		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
-	//		return
-	//	}
-	//}
-	defaultTime := strconv.FormatInt(time.Now().UnixMilli(), 10)
-	latestTimeUnix, _ := strconv.ParseInt(c.DefaultQuery("latest_time", defaultTime), 10, 64)
-	latestTime := time.UnixMilli(latestTimeUnix)
-	videoDaoList, rows := service.GetVideos(latestTime)
-	if rows == 0 {
+	var CurrentTimeInt int64 = time.Now().UnixMilli()
+	var CurrentTime string = strconv.FormatInt(CurrentTimeInt, 10)
+	var LatestTimeStr string = c.DefaultQuery("latest_time", CurrentTime)
+	LatestTime, _ := strconv.ParseInt(LatestTimeStr, 10, 64)
+	MaxNumVideo := 30
+	var videos []dao.Video
+	if rows := service.GetVideos(&videos, LatestTime, MaxNumVideo); rows == 0 {
 		c.JSON(http.StatusOK, FeedResponse{
-			Response:  Response{StatusCode: 1, StatusMsg: "no latest video"},
+			Response:  Response{StatusCode: 0},
 			VideoList: nil,
-			NextTime:  latestTime.UnixMilli(),
+			NextTime:  LatestTime,
 		})
+		return
 	}
 
 	var videoList []Video
-	for _, videoDao := range videoDaoList {
-		VideoLocation := "./public/" + videoDao.PlayUrl
+	for _, video_ := range videos {
+		VideoLocation := "./public/" + video_.PlayUrl
 		if _, err := os.Stat(VideoLocation); err != nil {
 			continue
 		}
-		CoverLocation := "./public/" + videoDao.CoverUrl
+		CoverLocation := "./public/" + video_.CoverUrl
 		if _, err := os.Stat(CoverLocation); err != nil {
 			continue
 		}
-		userDao, _ := service.UserInfoByUserID(videoDao.UserID)
-		var author = User{
-			ID:            userDao.UserID,
-			Name:          userDao.Name,
-			FollowCount:   userDao.FollowCount,
-			FollowerCount: userDao.FollowerCount,
-			IsFollow:      false,
+		var author_ dao.UserForFeed
+		if err := service.GetAuthor(&author_, video_.UserID); err != nil {
+			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
+			return
 		}
+		isFollow := false
+		author := User{
+			ID:            author_.UserID,
+			Name:          author_.Name,
+			FollowCount:   author_.FollowerCount,
+			FollowerCount: author_.FollowerCount,
+			IsFollow:      isFollow,
+		}
+		isFavorite := false
 		video := Video{
-			ID:            videoDao.VideoID,
+			ID:            video_.VideoID,
 			Author:        author,
-			PlayUrl:       "http://" + c.Request.Host + "/static" + videoDao.PlayUrl,
-			CoverUrl:      "http://" + c.Request.Host + "/static" + videoDao.CoverUrl,
-			FavoriteCount: videoDao.FavoriteCount,
-			CommentCount:  videoDao.CommentCount,
-			Title:         videoDao.Title,
-			IsFavorite:    false,
+			PlayUrl:       "http://" + c.Request.Host + "/static/" + video_.PlayUrl,
+			CoverUrl:      "http://" + c.Request.Host + "/static/" + video_.CoverUrl,
+			FavoriteCount: video_.FavoriteCount,
+			CommentCount:  video_.CommentCount,
+			Title:         video_.Title,
+			IsFavorite:    isFavorite,
 		}
 		videoList = append(videoList, video)
 	}
 
-	nextTime := latestTime
-	if len(videoDaoList) > 0 {
-		nextTime = videoDaoList[len(videoDaoList)-1].CreatedAt
-	}
+	nextTime := videos[len(videos)-1].CreatedAt
+
 	c.JSON(http.StatusOK, FeedResponse{
-		Response:  Response{StatusCode: 0, StatusMsg: "OK"},
+		Response:  Response{StatusCode: 0},
 		VideoList: videoList,
-		NextTime:  nextTime.UnixMilli(),
+		NextTime:  nextTime,
 	})
 }
