@@ -9,9 +9,6 @@ import (
 	"time"
 )
 
-type User struct {
-}
-
 type UserClaims struct {
 	ID     uint64
 	UserID uint64
@@ -20,7 +17,7 @@ type UserClaims struct {
 }
 
 // Register : 用户注册
-func (*User) Register(username string, password string) (user *dao.User, err error) {
+func Register(username string, password string) (user *dao.User, err error) {
 	//判断用户名是否存在
 	rowsAffected := global.GVAR_DB.Debug().Where("name = ?", username).Limit(1).Find(&user).RowsAffected
 	if rowsAffected != 0 {
@@ -39,7 +36,7 @@ func (*User) Register(username string, password string) (user *dao.User, err err
 }
 
 // Login : 用户登录
-func (*User) Login(username string, password string) (user *dao.User, err error) {
+func Login(username string, password string) (user *dao.User, err error) {
 	//检查用户名是否存在
 	rowsAffected := global.GVAR_DB.Debug().Where("name = ?", username).Limit(1).Find(&user).RowsAffected
 	if rowsAffected == 0 {
@@ -56,7 +53,7 @@ func (*User) Login(username string, password string) (user *dao.User, err error)
 }
 
 // GenerateToken : 生成 token
-func (*User) GenerateToken(user *dao.User) (string, error) {
+func GenerateToken(user *dao.User) (string, error) {
 	//获取全局签名
 	mySigningKey := []byte(global.GVAR_JWT_SigningKey)
 	//配置 userClaims ,并生成 token
@@ -76,7 +73,7 @@ func (*User) GenerateToken(user *dao.User) (string, error) {
 }
 
 // ParseToken : 解析 token
-func (*User) ParseToken(tokenString string) (*jwt.Token, error) {
+func ParseToken(tokenString string) (*jwt.Token, error) {
 	//获取全局签名
 	mySigningKey := []byte(global.GVAR_JWT_SigningKey)
 	//解析 token 信息
@@ -86,7 +83,7 @@ func (*User) ParseToken(tokenString string) (*jwt.Token, error) {
 }
 
 // GetIDFromToken : 解析 token 获取 UserID
-func (*User) GetIDFromToken(tokenString string) (uint64, error) {
+func GetIDFromToken(tokenString string) (uint64, error) {
 	//获取全局签名
 	mySigningKey := []byte(global.GVAR_JWT_SigningKey)
 	//解析 token 信息
@@ -98,7 +95,7 @@ func (*User) GetIDFromToken(tokenString string) (uint64, error) {
 }
 
 // UserInfoByUserID : 通过 UserID 获取用户信息
-func (*User) UserInfoByUserID(userID uint64) (user *dao.User, err error) {
+func UserInfoByUserID(userID uint64) (user *dao.User, err error) {
 	//检查 userID 是否存在；若存在，获取用户信息
 	rowsAffected := global.GVAR_DB.Debug().Where("user_id = ?", userID).Limit(1).Find(&user).RowsAffected
 	if rowsAffected == 0 {
@@ -110,7 +107,7 @@ func (*User) UserInfoByUserID(userID uint64) (user *dao.User, err error) {
 }
 
 // UserInfoByID : 通过 ID 获取用户信息
-func (*User) UserInfoByID(ID uint64) (user *dao.User, err error) {
+func UserInfoByID(ID uint64) (user *dao.User, err error) {
 	//检查 userID 是否存在；若存在，获取用户信息
 	rowsAffected := global.GVAR_DB.Debug().Where("id = ?", ID).Limit(1).Find(&user).RowsAffected
 	if rowsAffected == 0 {

@@ -1,15 +1,6 @@
 package controller
 
 var (
-	DemoComments = []Comment{
-		{
-			ID:         1,
-			User:       DemoUser,
-			Content:    "Test Comment",
-			CreateDate: "05-01",
-		},
-	}
-
 	DemoUser = User{
 		ID:            1,
 		Name:          "TestUser",

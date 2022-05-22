@@ -2,6 +2,7 @@ package controller
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/goldenBill/douyin-fighting/service"
 	"net/http"
 	"strconv"
 )
@@ -22,13 +23,13 @@ func Register(c *gin.Context) {
 	username := c.Query("username")
 	password := c.Query("password")
 	//注册用户到数据库
-	userDao, err := userService.Register(username, password)
+	userDao, err := service.Register(username, password)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
 	//生成对应 token
-	tokenString, err := userService.GenerateToken(userDao)
+	tokenString, err := service.GenerateToken(userDao)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
@@ -45,13 +46,13 @@ func Login(c *gin.Context) {
 	username := c.Query("username")
 	password := c.Query("password")
 	//从数据库查询用户信息
-	userDao, err := userService.Login(username, password)
+	userDao, err := service.Login(username, password)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
 	//生成对应 token
-	tokenString, err := userService.GenerateToken(userDao)
+	tokenString, err := service.GenerateToken(userDao)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
@@ -67,14 +68,14 @@ func Login(c *gin.Context) {
 func UserInfo(c *gin.Context) {
 	// 检查 token 合法性
 	tokenString := c.Query("token")
-	_, err := userService.ParseToken(tokenString)
+	_, err := service.ParseToken(tokenString)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
 	//获取指定 userID 的信息
 	userID, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
-	userDao, err := userService.UserInfoByUserID(userID)
+	userDao, err := service.UserInfoByUserID(userID)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return

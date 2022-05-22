@@ -2,6 +2,7 @@ package controller
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/goldenBill/douyin-fighting/service"
 	"net/http"
 	"os"
 	"strconv"
@@ -19,20 +20,21 @@ func Feed(c *gin.Context) {
 	//// token 验证
 	//var tokenString = c.DefaultQuery("token", "")
 	//if tokenString != "" {
-	//	_, err := userService.ParseToken(tokenString)
+	//	_, err := service.ParseToken(tokenString)
 	//	if err != nil {
 	//		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 	//		return
 	//	}
 	//}
-	latestTimeUnix, _ := strconv.ParseInt(c.Query("latest_time"), 10, 64)
-	latestTime := time.Unix(latestTimeUnix/1e3, 0)
-	videoDaoList, rows := videoService.GetVideos(latestTime)
+	defaultTime := strconv.FormatInt(time.Now().UnixMilli(), 10)
+	latestTimeUnix, _ := strconv.ParseInt(c.DefaultQuery("latest_time", defaultTime), 10, 64)
+	latestTime := time.UnixMilli(latestTimeUnix)
+	videoDaoList, rows := service.GetVideos(latestTime)
 	if rows == 0 {
 		c.JSON(http.StatusOK, FeedResponse{
 			Response:  Response{StatusCode: 1, StatusMsg: "no latest video"},
 			VideoList: nil,
-			NextTime:  latestTime.UnixNano() / 1e6,
+			NextTime:  latestTime.UnixMilli(),
 		})
 	}
 
@@ -46,7 +48,7 @@ func Feed(c *gin.Context) {
 		if _, err := os.Stat(CoverLocation); err != nil {
 			continue
 		}
-		userDao, _ := userService.UserInfoByUserID(videoDao.UserID)
+		userDao, _ := service.UserInfoByUserID(videoDao.UserID)
 		var author = User{
 			ID:            userDao.UserID,
 			Name:          userDao.Name,
@@ -74,6 +76,6 @@ func Feed(c *gin.Context) {
 	c.JSON(http.StatusOK, FeedResponse{
 		Response:  Response{StatusCode: 0, StatusMsg: "OK"},
 		VideoList: videoList,
-		NextTime:  nextTime.UnixNano() / 1e6,
+		NextTime:  nextTime.UnixMilli(),
 	})
 }

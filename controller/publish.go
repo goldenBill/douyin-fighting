@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/goldenBill/douyin-fighting/dao"
+	"github.com/goldenBill/douyin-fighting/service"
 	"github.com/goldenBill/douyin-fighting/util"
 	"net/http"
 	"os"
@@ -20,13 +21,13 @@ type VideoListResponse struct {
 func Publish(c *gin.Context) {
 	//验证 Token 合法性，提取ID
 	tokenString := c.PostForm("token")
-	ID, err := userService.GetIDFromToken(tokenString)
+	ID, err := service.GetIDFromToken(tokenString)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
 	//获取 UserInfo
-	userDao, err := userService.UserInfoByID(ID)
+	userDao, err := service.UserInfoByID(ID)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "User doesn't exist"})
 		return
@@ -48,7 +49,7 @@ func Publish(c *gin.Context) {
 		Active:   false,
 	}
 	// 添加到数据库
-	err = videoService.PublishVideo(&videoDao)
+	err = service.PublishVideo(&videoDao)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{
 			StatusCode: 1,
@@ -68,7 +69,7 @@ func Publish(c *gin.Context) {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
-	if err = videoService.SetActive(videoDao.VideoID); err != nil {
+	if err = service.SetActive(videoDao.VideoID); err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
@@ -84,20 +85,20 @@ func PublishList(c *gin.Context) {
 		return
 	}
 	//验证 Token 合法性，提取ID
-	_, err := userService.ParseToken(tokenString)
+	_, err := service.ParseToken(tokenString)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
 
 	userID, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
-	userDao, err := userService.UserInfoByUserID(userID)
+	userDao, err := service.UserInfoByUserID(userID)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "User doesn't exist"})
 		return
 	}
 
-	videoDaoList, err := videoService.GetPublishedVideos(userID)
+	videoDaoList, err := service.GetPublishedVideos(userID)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return

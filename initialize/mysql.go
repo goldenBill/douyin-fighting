@@ -5,6 +5,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
+	"github.com/jmoiron/sqlx"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -20,6 +21,15 @@ func InitMySQL() {
 	//dsn := "用户名:密码@tcp(地址:端口)/数据库名"
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", username, password, host, port, dbName)
 
+	// 配置sqlx连接到MySQL
+	if db, err := sqlx.Open("mysql", dsn); err == nil {
+		db.SetConnMaxLifetime(100) // 设置数据库最大连接数
+		db.SetMaxIdleConns(10)     // 设置上数据库最大闲置连接数
+		global.GVAR_SQLX_DB = db
+	} else {
+		panic("connect server failed")
+	}
+
 	// 配置Gorm连接到MySQL
 	mysqlConfig := mysql.Config{
 		DSN:                       dsn,   // DSN
@@ -33,11 +43,15 @@ func InitMySQL() {
 		sqlDB.SetMaxOpenConns(100) // 设置数据库最大连接数
 		sqlDB.SetMaxIdleConns(10)  // 设置上数据库最大闲置连接数
 		global.GVAR_DB = db
+	} else {
+		panic("connect server failed")
 	}
 
 	if global.GVAR_AUTO_CREATE_DB {
 		global.GVAR_DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&dao.User{})
 		global.GVAR_DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&dao.Video{})
+		global.GVAR_DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&dao.Favorite{})
+		global.GVAR_DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&dao.Comment{})
 	}
 
 }
