@@ -13,8 +13,8 @@ type User struct {
 }
 
 type UserClaims struct {
-	Id     uint64
-	UserId uint64
+	ID     uint64
+	UserID uint64
 	Name   string
 	jwt.RegisteredClaims
 }
@@ -27,10 +27,12 @@ func (*User) Register(username string, password string) (user *dao.User, err err
 		err = errors.New("user already exists")
 		return
 	}
+	//接收姓名
+	user.Name = username
 	//对明文密码加密
 	user.Password = util.BcryptHash(password)
-	//生成增长的 userId
-	user.UserId, _ = global.GVAR_ID_GENERATOR.NextID()
+	//生成增长的 userID
+	user.UserID, _ = global.GVAR_ID_GENERATOR.NextID()
 	//存储到数据库
 	err = global.GVAR_DB.Debug().Create(user).Error
 	return
@@ -53,38 +55,14 @@ func (*User) Login(username string, password string) (user *dao.User, err error)
 	return
 }
 
-// UserInfoByUserId : 通过 UserId 获取用户信息
-func (*User) UserInfoByUserId(userId uint64) (user *dao.User, err error) {
-	//检查 userId 是否存在；若存在，获取用户信息
-	rowsAffected := global.GVAR_DB.Debug().Where("user_id = ?", userId).Limit(1).Find(&user).RowsAffected
-	if rowsAffected == 0 {
-		err = errors.New("username does not exist")
-		return
-	}
-	err = nil
-	return
-}
-
-// UserInfoById : 通过 Id 获取用户信息
-func (*User) UserInfoById(Id uint64) (user *dao.User, err error) {
-	//检查 userId 是否存在；若存在，获取用户信息
-	rowsAffected := global.GVAR_DB.Debug().Where("id = ?", Id).Limit(1).Find(&user).RowsAffected
-	if rowsAffected == 0 {
-		err = errors.New("username does not exist")
-		return
-	}
-	err = nil
-	return
-}
-
 // GenerateToken : 生成 token
 func (*User) GenerateToken(user *dao.User) (string, error) {
 	//获取全局签名
 	mySigningKey := []byte(global.GVAR_JWT_SigningKey)
 	//配置 userClaims ,并生成 token
 	claims := UserClaims{
-		user.Id,
-		user.UserId,
+		user.ID,
+		user.UserID,
 		user.Name,
 		jwt.RegisteredClaims{
 			// A usual scenario is to set the expiration time relative to the current time
@@ -98,7 +76,7 @@ func (*User) GenerateToken(user *dao.User) (string, error) {
 }
 
 // ParseToken : 解析 token
-func (User) ParseToken(tokenString string) (*jwt.Token, error) {
+func (*User) ParseToken(tokenString string) (*jwt.Token, error) {
 	//获取全局签名
 	mySigningKey := []byte(global.GVAR_JWT_SigningKey)
 	//解析 token 信息
@@ -107,8 +85,8 @@ func (User) ParseToken(tokenString string) (*jwt.Token, error) {
 	})
 }
 
-// GetUserIdFromToken : 解析 token 获取 UserId
-func (User) GetIdFromToken(tokenString string) (uint64, error) {
+// GetIDFromToken : 解析 token 获取 UserID
+func (*User) GetIDFromToken(tokenString string) (uint64, error) {
 	//获取全局签名
 	mySigningKey := []byte(global.GVAR_JWT_SigningKey)
 	//解析 token 信息
@@ -116,5 +94,29 @@ func (User) GetIdFromToken(tokenString string) (uint64, error) {
 		return mySigningKey, nil
 	})
 	claims := token.Claims.(*UserClaims)
-	return claims.Id, err
+	return claims.ID, err
+}
+
+// UserInfoByUserID : 通过 UserID 获取用户信息
+func (*User) UserInfoByUserID(userID uint64) (user *dao.User, err error) {
+	//检查 userID 是否存在；若存在，获取用户信息
+	rowsAffected := global.GVAR_DB.Debug().Where("user_id = ?", userID).Limit(1).Find(&user).RowsAffected
+	if rowsAffected == 0 {
+		err = errors.New("username does not exist")
+		return
+	}
+	err = nil
+	return
+}
+
+// UserInfoByID : 通过 ID 获取用户信息
+func (*User) UserInfoByID(ID uint64) (user *dao.User, err error) {
+	//检查 userID 是否存在；若存在，获取用户信息
+	rowsAffected := global.GVAR_DB.Debug().Where("id = ?", ID).Limit(1).Find(&user).RowsAffected
+	if rowsAffected == 0 {
+		err = errors.New("username does not exist")
+		return
+	}
+	err = nil
+	return
 }

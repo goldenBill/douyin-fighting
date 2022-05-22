@@ -5,8 +5,16 @@ type Response struct {
 	StatusMsg  string `json:"status_msg,omitempty"`
 }
 
+type User struct {
+	ID            uint64 `json:"id"`
+	Name          string `json:"name"`
+	FollowCount   uint64 `json:"follow_count,omitempty"`
+	FollowerCount uint64 `json:"follower_count,omitempty"`
+	IsFollow      bool   `json:"is_follow"`
+}
+
 type Video struct {
-	Id            uint64 `json:"id"`
+	ID            uint64 `json:"id"`
 	Author        User   `json:"author"`
 	PlayUrl       string `json:"play_url"`
 	CoverUrl      string `json:"cover_url"`
@@ -17,16 +25,8 @@ type Video struct {
 }
 
 type Comment struct {
-	Id         uint64 `json:"id,omitempty"`
+	ID         uint64 `json:"id,omitempty"`
 	User       User   `json:"user"`
 	Content    string `json:"content,omitempty"`
 	CreateDate string `json:"create_date,omitempty"`
-}
-
-type User struct {
-	Id            uint64 `json:"id"`
-	Name          string `json:"name"`
-	FollowCount   uint64 `json:"follow_count,omitempty"`
-	FollowerCount uint64 `json:"follower_count,omitempty"`
-	IsFollow      bool   `json:"is_follow"`
 }

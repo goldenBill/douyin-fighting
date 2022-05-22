@@ -8,7 +8,7 @@ import (
 
 type UserLoginResponse struct {
 	Response
-	UserId uint64 `json:"user_id"`
+	UserID uint64 `json:"user_id"`
 	Token  string `json:"token"`
 }
 
@@ -35,7 +35,7 @@ func Register(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, UserLoginResponse{
 		Response: Response{StatusCode: 0, StatusMsg: "OK"},
-		UserId:   userDao.UserId,
+		UserID:   userDao.UserID,
 		Token:    tokenString,
 	})
 }
@@ -58,7 +58,7 @@ func Login(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, UserLoginResponse{
 		Response: Response{StatusCode: 0, StatusMsg: "OK"},
-		UserId:   userDao.UserId,
+		UserID:   userDao.UserID,
 		Token:    tokenString,
 	})
 }
@@ -72,9 +72,9 @@ func UserInfo(c *gin.Context) {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
-	//获取指定 userId 的信息
-	userId, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
-	userDao, err := userService.UserInfoByUserId(userId)
+	//获取指定 userID 的信息
+	userID, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
+	userDao, err := userService.UserInfoByUserID(userID)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
@@ -83,7 +83,7 @@ func UserInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, UserResponse{
 		Response: Response{StatusCode: 0, StatusMsg: "OK"},
 		User: User{
-			Id:            userId,
+			ID:            userID,
 			Name:          userDao.Name,
 			FollowCount:   0,
 			FollowerCount: 0,
