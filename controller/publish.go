@@ -3,11 +3,13 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/goldenBill/douyin-fighting/dao"
+	"github.com/goldenBill/douyin-fighting/global"
 	"github.com/goldenBill/douyin-fighting/service"
 	"github.com/goldenBill/douyin-fighting/util"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
 type VideoListResponse struct {
@@ -36,7 +38,7 @@ func Publish(c *gin.Context) {
 		return
 	}
 
-	videoName, coverName, videoID, err := service.PublishVideo(userID, title)
+	videoID, err := global.GVAR_ID_GENERATOR.NextID()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, Response{
 			StatusCode: 1,
@@ -44,10 +46,14 @@ func Publish(c *gin.Context) {
 		})
 		return
 	}
+	name := strconv.FormatUint(videoID, 10)
+	videoName := name + ".mp4"
+	coverName := name + ".jpg"
 
-	VideoSavePath := filepath.Join("./public/", videoName)
+	videoSavePath := filepath.Join(global.GVAR_VIDEO_ADDR, videoName)
+	coverSavePath := filepath.Join(global.GVAR_COVER_ADDR, coverName)
 
-	if err := c.SaveUploadedFile(data, VideoSavePath); err != nil {
+	if err = c.SaveUploadedFile(data, videoSavePath); err != nil {
 		c.JSON(http.StatusInternalServerError, Response{
 			StatusCode: 1,
 			StatusMsg:  err.Error(),
@@ -55,16 +61,16 @@ func Publish(c *gin.Context) {
 		return
 	}
 
-	CoverSavePath := filepath.Join("./public/", coverName)
-
-	if err = util.GetFrame(VideoSavePath, CoverSavePath); err != nil {
+	if err = util.GetFrame(videoSavePath, coverSavePath); err != nil {
 		c.JSON(http.StatusInternalServerError, Response{
 			StatusCode: 1,
 			StatusMsg:  err.Error(),
 		})
 		return
 	}
-	if err = service.SetActive(videoID); err != nil {
+
+	err = service.PublishVideo(userID, videoID, videoName, coverName, title)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, Response{
 			StatusCode: 1,
 			StatusMsg:  err.Error(),
@@ -90,11 +96,11 @@ func PublishList(c *gin.Context) {
 	}
 	var videoList []Video
 	for _, video_ := range videos {
-		VideoLocation := "./public/" + video_.PlayUrl
+		VideoLocation := global.GVAR_VIDEO_ADDR + video_.PlayName
 		if _, err := os.Stat(VideoLocation); err != nil {
 			continue
 		}
-		CoverLocation := "./public/" + video_.CoverUrl
+		CoverLocation := global.GVAR_VIDEO_ADDR + video_.CoverName
 		if _, err := os.Stat(CoverLocation); err != nil {
 			continue
 		}
@@ -115,8 +121,8 @@ func PublishList(c *gin.Context) {
 		video := Video{
 			ID:            video_.VideoID,
 			Author:        author,
-			PlayUrl:       "http://" + c.Request.Host + "/static/" + video_.PlayUrl,
-			CoverUrl:      "http://" + c.Request.Host + "/static/" + video_.CoverUrl,
+			PlayUrl:       "http://" + c.Request.Host + "/static/video/" + video_.PlayName,
+			CoverUrl:      "http://" + c.Request.Host + "/static/cover/" + video_.CoverName,
 			FavoriteCount: video_.FavoriteCount,
 			CommentCount:  video_.CommentCount,
 			Title:         video_.Title,
