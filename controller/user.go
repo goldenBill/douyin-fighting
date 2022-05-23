@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/goldenBill/douyin-fighting/service"
+	"github.com/goldenBill/douyin-fighting/util"
 	"net/http"
 	"strconv"
 )
@@ -29,7 +30,7 @@ func Register(c *gin.Context) {
 		return
 	}
 	//生成对应 token
-	tokenString, err := service.GenerateToken(userDao)
+	tokenString, err := util.GenerateToken(userDao)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
@@ -52,7 +53,7 @@ func Login(c *gin.Context) {
 		return
 	}
 	//生成对应 token
-	tokenString, err := service.GenerateToken(userDao)
+	tokenString, err := util.GenerateToken(userDao)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
@@ -66,13 +67,6 @@ func Login(c *gin.Context) {
 
 // UserInfo : 获取用户信息
 func UserInfo(c *gin.Context) {
-	// 检查 token 合法性
-	tokenString := c.Query("token")
-	_, err := service.ParseToken(tokenString)
-	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
-		return
-	}
 	//获取指定 userID 的信息
 	userID, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
 	userDao, err := service.UserInfoByUserID(userID)

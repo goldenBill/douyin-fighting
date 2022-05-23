@@ -17,14 +17,9 @@ type VideoListResponse struct {
 
 // Publish check token then save upload file to public directory
 func Publish(c *gin.Context) {
-	tokenString := c.PostForm("token")
-	token, err := service.ParseToken(tokenString)
-	if err != nil {
-		c.JSON(http.StatusForbidden, Response{StatusCode: 1, StatusMsg: err.Error()})
-		return
-	}
-	claims := token.Claims.(*service.UserClaims)
-	userID := claims.UserID
+	// 获取 userID
+	userID := c.GetUint64("UserID")
+
 	if !service.IsUserIDExist(userID) {
 		c.JSON(http.StatusForbidden, Response{StatusCode: 1, StatusMsg: "User doesn't exist"})
 		return
@@ -85,20 +80,11 @@ func Publish(c *gin.Context) {
 
 // PublishList all users have same publish video list
 func PublishList(c *gin.Context) {
-	tokenString := c.Query("token")
-	token, err := service.ParseToken(tokenString)
-	if err != nil {
-		c.JSON(http.StatusForbidden, Response{StatusCode: 1, StatusMsg: err.Error()})
-		return
-	}
-	claims := token.Claims.(*service.UserClaims)
-	userID := claims.UserID
-	if !service.IsUserIDExist(userID) {
-		c.JSON(http.StatusForbidden, Response{StatusCode: 1, StatusMsg: "User doesn't exist"})
-		return
-	}
+	// 获取 userID
+	userID := c.GetUint64("UserID")
+
 	var videos []dao.Video
-	if err = service.GetPublishedVideos(&videos, userID); err != nil {
+	if err := service.GetPublishedVideos(&videos, userID); err != nil {
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
@@ -112,8 +98,8 @@ func PublishList(c *gin.Context) {
 		if _, err := os.Stat(CoverLocation); err != nil {
 			continue
 		}
-		var author_ dao.UserForFeed
-		if err := service.GetAuthor(&author_, video_.UserID); err != nil {
+		author_, err := service.UserInfoByUserID(video_.UserID)
+		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
 		}

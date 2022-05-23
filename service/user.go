@@ -2,20 +2,10 @@ package service
 
 import (
 	"errors"
-	"github.com/golang-jwt/jwt/v4"
 	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
 	"github.com/goldenBill/douyin-fighting/util"
-	"gorm.io/gorm"
-	"time"
 )
-
-type UserClaims struct {
-	ID     uint64
-	UserID uint64
-	Name   string
-	jwt.RegisteredClaims
-}
 
 // Register : 用户注册
 func Register(username string, password string) (user *dao.User, err error) {
@@ -53,48 +43,6 @@ func Login(username string, password string) (user *dao.User, err error) {
 	return
 }
 
-// GenerateToken : 生成 token
-func GenerateToken(user *dao.User) (string, error) {
-	//获取全局签名
-	mySigningKey := []byte(global.GVAR_JWT_SigningKey)
-	//配置 userClaims ,并生成 token
-	claims := UserClaims{
-		user.ID,
-		user.UserID,
-		user.Name,
-		jwt.RegisteredClaims{
-			// A usual scenario is to set the expiration time relative to the current time
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-		},
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(mySigningKey)
-}
-
-// ParseToken : 解析 token
-func ParseToken(tokenString string) (*jwt.Token, error) {
-	//获取全局签名
-	mySigningKey := []byte(global.GVAR_JWT_SigningKey)
-	//解析 token 信息
-	return jwt.ParseWithClaims(tokenString, &UserClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return mySigningKey, nil
-	})
-}
-
-// GetIDFromToken : 解析 token 获取 UserID
-func GetIDFromToken(tokenString string) (uint64, error) {
-	//获取全局签名
-	mySigningKey := []byte(global.GVAR_JWT_SigningKey)
-	//解析 token 信息
-	token, err := jwt.ParseWithClaims(tokenString, &UserClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return mySigningKey, nil
-	})
-	claims := token.Claims.(*UserClaims)
-	return claims.ID, err
-}
-
 // UserInfoByUserID : 通过 UserID 获取用户信息
 func UserInfoByUserID(userID uint64) (user *dao.User, err error) {
 	//检查 userID 是否存在；若存在，获取用户信息
@@ -107,24 +55,9 @@ func UserInfoByUserID(userID uint64) (user *dao.User, err error) {
 	return
 }
 
-// UserInfoByID : 通过 ID 获取用户信息
-func UserInfoByID(ID uint64) (user *dao.User, err error) {
-	//检查 userID 是否存在；若存在，获取用户信息
-	rowsAffected := global.GVAR_DB.Debug().Where("id = ?", ID).Limit(1).Find(&user).RowsAffected
-	if rowsAffected == 0 {
-		err = errors.New("username does not exist")
-		return
-	}
-	err = nil
-	return
-}
-
-//
+// 判断userID是否有效
 func IsUserIDExist(userID uint64) bool {
-	var user dao.UserCheck
-	err := global.GVAR_DB.Model(&dao.User{}).Where("user_id = ?", userID).Take(&user).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return false
-	}
-	return true
+	var count int64
+	global.GVAR_DB.Debug().Model(&dao.User{}).Where("user_id = ?", userID).Count(&count)
+	return count != 0
 }

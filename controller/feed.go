@@ -43,8 +43,8 @@ func Feed(c *gin.Context) {
 		if _, err := os.Stat(CoverLocation); err != nil {
 			continue
 		}
-		var author_ dao.UserForFeed
-		if err := service.GetAuthor(&author_, video_.UserID); err != nil {
+		author_, err := service.UserInfoByUserID(video_.UserID)
+		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
 		}

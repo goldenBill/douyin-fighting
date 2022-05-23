@@ -3,6 +3,7 @@ package initialize
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/goldenBill/douyin-fighting/controller"
+	"github.com/goldenBill/douyin-fighting/middleware"
 )
 
 func InitRouter() {
@@ -14,22 +15,31 @@ func InitRouter() {
 
 	// basic apis
 	apiRouter.GET("/feed/", controller.Feed)
-	apiRouter.GET("/user/", controller.UserInfo)
 	apiRouter.POST("/user/register/", controller.Register)
 	apiRouter.POST("/user/login/", controller.Login)
-	apiRouter.POST("/publish/action/", controller.Publish)
-	apiRouter.GET("/publish/list/", controller.PublishList)
 
 	// extra apis - I
-	apiRouter.POST("/favorite/action/", controller.FavoriteAction)
-	apiRouter.GET("/favorite/list/", controller.FavoriteList)
-	apiRouter.POST("/comment/action/", controller.CommentAction)
 	apiRouter.GET("/comment/list/", controller.CommentList)
 
-	// extra apis - II
-	apiRouter.POST("/relation/action/", controller.RelationAction)
-	apiRouter.GET("/relation/follow/list/", controller.FollowList)
-	apiRouter.GET("/relation/follower/list/", controller.FollowerList)
+	// 需要 token 验证的路由
+	authed := apiRouter.Group("/")
+	authed.Use(middleware.JWT())
+	{
+		// basic apis
+		authed.GET("/user/", controller.UserInfo)
+		authed.POST("/publish/action/", controller.Publish)
+		authed.GET("/publish/list/", controller.PublishList)
+
+		// extra apis - I
+		authed.POST("/favorite/action/", controller.FavoriteAction)
+		authed.GET("/favorite/list/", controller.FavoriteList)
+		authed.POST("/comment/action/", controller.CommentAction)
+
+		// extra apis - II
+		authed.POST("/relation/action/", controller.RelationAction)
+		authed.GET("/relation/follow/list/", controller.FollowList)
+		authed.GET("/relation/follower/list/", controller.FollowerList)
+	}
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }

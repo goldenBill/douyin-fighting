@@ -47,20 +47,8 @@ func CommentAction(c *gin.Context) {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "action type error"})
 		return
 	}
-
-	// 判断 token 是否正确，即验证用户是否正确
-	ID, err := service.GetIDFromToken(r.Token)
-	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
-		return
-	}
-	//获取 UserInfo
-	userDao, err := service.UserInfoByID(ID)
-	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "User doesn't exist"})
-		return
-	}
-	r.UserID = userDao.UserID
+	// 获取 userID
+	r.UserID = c.GetUint64("UserID")
 
 	// 判断 video_id 是否正确
 

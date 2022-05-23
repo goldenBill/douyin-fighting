@@ -12,11 +12,6 @@ func GetVideos(videos *[]dao.Video, LatestTime int64, MaxNumVideo int) int64 {
 	return rowsAffected
 }
 
-func GetAuthor(author *dao.UserForFeed, userID uint64) error {
-	err := global.GVAR_DB.Debug().Where("user_id = ?", userID).Take(author).Error
-	return err
-}
-
 func PublishVideo(userID uint64, title string) (string, string, uint64, error) {
 	var video dao.Video
 	video.VideoID, _ = global.GVAR_ID_GENERATOR.NextID()

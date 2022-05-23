@@ -78,10 +78,10 @@ func GetFavoriteStatus(userID, videoID uint64) bool {
 }
 
 // GetFavoriteCount 获取视频videoID的点赞数
-func GetFavoriteCount(videoID uint64) uint64 {
+func GetFavoriteCount(videoID uint64) int64 {
 	var count int64
 	global.GVAR_DB.Model(&dao.Favorite{}).Where("video_id = ? and is_favorite = ?", videoID, true).Count(&count)
-	return uint64(count)
+	return count
 }
 
 func GetVideoListByVideoIDs(videoIDList []uint64) ([]dao.Video, error) {
@@ -98,22 +98,22 @@ func GetVideoListByVideoIDs(videoIDList []uint64) ([]dao.Video, error) {
 	return videoDaoList, nil
 }
 
-func GetFollowCount(userID uint64) uint64 {
+func GetFollowCount(userID uint64) int64 {
 	var followCount int64
 	sqlStr := "select count(*) from follow where follower_id = ?"
 	if err := global.GVAR_SQLX_DB.Get(&followCount, sqlStr, userID); err != nil {
 		fmt.Println("exec failed, ", err)
-		return 0
+		return -1
 	}
-	return uint64(followCount)
+	return followCount
 }
 
-func GetFollowerCount(userID uint64) uint64 {
+func GetFollowerCount(userID uint64) int64 {
 	var followCount int64
 	sqlStr := "select count(*) from follow where user_id = ?"
 	if err := global.GVAR_SQLX_DB.Get(&followCount, sqlStr, userID); err != nil {
 		fmt.Println("exec failed, ", err)
-		return 0
+		return -1
 	}
-	return uint64(followCount)
+	return followCount
 }

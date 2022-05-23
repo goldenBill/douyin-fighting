@@ -6,8 +6,8 @@ type Video struct {
 	Title         string `db:"title"`
 	PlayUrl       string `db:"play_url"`
 	CoverUrl      string `db:"cover_url"`
-	FavoriteCount uint64 `db:"favorite_count"`
-	CommentCount  uint64 `db:"comment_count"`
+	FavoriteCount int64  `db:"favorite_count"`
+	CommentCount  int64  `db:"comment_count"`
 	UserID        uint64 `db:"user_id"`
 	CreatedAt     int64  `db:"created_at"`
 	Active        bool   `db:"active"`

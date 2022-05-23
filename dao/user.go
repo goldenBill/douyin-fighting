@@ -9,8 +9,8 @@ type User struct {
 	UserID        uint64    `gorm:"column:user_id;NOT NULL"`
 	Name          string    `gorm:"column:name;NOT NULL"`
 	Password      string    `gorm:"column:password;NOT NULL"`
-	FollowCount   uint64    `gorm:"column:follow_count;default:0;NOT NULL"`
-	FollowerCount uint64    `gorm:"column:follower_count;default:0;NOT NULL"`
+	FollowCount   int64     `gorm:"column:follow_count;default:0;NOT NULL"`
+	FollowerCount int64     `gorm:"column:follower_count;default:0;NOT NULL"`
 	CreatedAt     time.Time `gorm:"column:created_at;autoCreateTime:true;NOT NULL"`
 	ExtInfo       *string   `gorm:"column:ext_info"`
 }
@@ -22,8 +22,8 @@ func (User) TableName() string {
 type UserForFeed struct {
 	UserID        uint64
 	Name          string
-	FollowCount   uint64
-	FollowerCount uint64
+	FollowCount   int64
+	FollowerCount int64
 }
 
 func (UserForFeed) TableName() string {
