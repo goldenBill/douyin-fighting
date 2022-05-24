@@ -61,3 +61,9 @@ func IsUserIDExist(userID uint64) bool {
 	global.GVAR_DB.Debug().Model(&dao.User{}).Where("user_id = ?", userID).Count(&count)
 	return count != 0
 }
+
+// GetUserListByUserIDs 根据UserIDs获取对应的用户列表
+func GetUserListByUserIDs(UserIDs int64) (UserList []dao.User, err error) {
+	err = global.GVAR_DB.Debug().Where("user_id in (?)", UserIDs).Find(&UserList).Error
+	return UserList, err
+}
