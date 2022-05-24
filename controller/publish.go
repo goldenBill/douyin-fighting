@@ -122,7 +122,7 @@ func PublishList(c *gin.Context) {
 			FollowerCount: author_.FollowerCount,
 			IsFollow:      isFollow,
 		}
-		isFavorite := false
+		isFavorite := service.GetFavoriteStatus(userID, video_.VideoID)
 		video := Video{
 			ID:            video_.VideoID,
 			Author:        author,
