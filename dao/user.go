@@ -18,18 +18,3 @@ type User struct {
 func (User) TableName() string {
 	return "users"
 }
-
-type UserForFeed struct {
-	UserID        uint64
-	Name          string
-	FollowCount   int64
-	FollowerCount int64
-}
-
-func (UserForFeed) TableName() string {
-	return "users"
-}
-
-type UserCheck struct {
-	ID uint
-}

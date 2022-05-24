@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/goldenBill/douyin-fighting/service"
 	"net/http"
+	"strconv"
 )
 
 // FavoriteActionRequest 点赞操作请求结构体
@@ -67,7 +68,7 @@ func FavoriteList(c *gin.Context) {
 	}
 
 	// 获取 userID
-	r.UserID = c.GetUint64("UserID")
+	r.UserID, _ = strconv.ParseUint(c.Query("user_id"), 10, 64)
 
 	videoDaoList, err := service.GetFavoriteListByUserID(r.UserID)
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
 type VideoListResponse struct {
@@ -81,7 +82,7 @@ func Publish(c *gin.Context) {
 // PublishList all users have same publish video list
 func PublishList(c *gin.Context) {
 	// 获取 userID
-	userID := c.GetUint64("UserID")
+	userID, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
 
 	var videos []dao.Video
 	if err := service.GetPublishedVideos(&videos, userID); err != nil {

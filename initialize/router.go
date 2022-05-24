@@ -17,8 +17,10 @@ func InitRouter() {
 	apiRouter.GET("/feed/", controller.Feed)
 	apiRouter.POST("/user/register/", controller.Register)
 	apiRouter.POST("/user/login/", controller.Login)
+	apiRouter.GET("/publish/list/", controller.PublishList)
 
 	// extra apis - I
+	apiRouter.GET("/favorite/list/", controller.FavoriteList)
 	apiRouter.GET("/comment/list/", controller.CommentList)
 
 	// 需要 token 验证的路由
@@ -28,11 +30,9 @@ func InitRouter() {
 		// basic apis
 		authed.GET("/user/", controller.UserInfo)
 		authed.POST("/publish/action/", controller.Publish)
-		authed.GET("/publish/list/", controller.PublishList)
 
 		// extra apis - I
 		authed.POST("/favorite/action/", controller.FavoriteAction)
-		authed.GET("/favorite/list/", controller.FavoriteList)
 		authed.POST("/comment/action/", controller.CommentAction)
 
 		// extra apis - II
