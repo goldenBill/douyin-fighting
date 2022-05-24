@@ -105,7 +105,7 @@ func PublishList(c *gin.Context) {
 		if _, err := os.Stat(VideoLocation); err != nil {
 			continue
 		}
-		CoverLocation := global.GVAR_VIDEO_ADDR + video_.CoverName
+		CoverLocation := global.GVAR_COVER_ADDR + video_.CoverName
 		if _, err := os.Stat(CoverLocation); err != nil {
 			continue
 		}
