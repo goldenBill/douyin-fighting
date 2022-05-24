@@ -7,14 +7,9 @@ import (
 	"time"
 )
 
-func GetVideos(videos *[]dao.Video, LatestTime int64, MaxNumVideo int) *gorm.DB {
-	result := global.GVAR_DB.Debug().Where("created_at < ?", LatestTime).Order("created_at DESC").Limit(MaxNumVideo).Find(videos)
+func GetFeedVideos(videos *[]dao.Video, LatestTime int64, MaxNumVideo int) *gorm.DB {
+	result := global.GVAR_DB.Debug().Where("created_at < ?", time.UnixMilli(LatestTime)).Order("created_at DESC").Limit(MaxNumVideo).Find(videos)
 	return result
-}
-
-func GetAuthor(author *dao.UserForFeed, userID uint64) error {
-	err := global.GVAR_DB.Debug().Where("user_id = ?", userID).Take(author).Error
-	return err
 }
 
 func PublishVideo(userID uint64, videoID uint64, videoName string, coverName string, title string) error {
@@ -25,15 +20,15 @@ func PublishVideo(userID uint64, videoID uint64, videoName string, coverName str
 	video.CoverName = coverName
 	//video.FavoriteCount = 0
 	//video.CommentCount = 0
-	video.UserID = userID
-	video.CreatedAt = time.Now().UnixMilli()
+	video.AuthorID = userID
+	//video.CreatedAt = time.Now().UnixMilli()
 
 	err := global.GVAR_DB.Debug().Create(&video).Error
 	return err
 }
 
 func GetPublishedVideos(videos *[]dao.Video, userID uint64) error {
-	err := global.GVAR_DB.Debug().Where("user_id = ?", userID).Find(videos).Error
+	err := global.GVAR_DB.Debug().Where("author_id = ?", userID).Find(videos).Error
 	return err
 }
 
