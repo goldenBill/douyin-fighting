@@ -103,7 +103,7 @@ func Feed(c *gin.Context) {
 			ID:            video_.VideoID,
 			Author:        author,
 			PlayUrl:       "http://" + c.Request.Host + "/static/video/" + video_.PlayName,
-			CoverUrl:      "http://" + c.Request.Host + "/static/public/" + video_.CoverName,
+			CoverUrl:      "http://" + c.Request.Host + "/static/cover/" + video_.CoverName,
 			FavoriteCount: video_.FavoriteCount,
 			CommentCount:  video_.CommentCount,
 			Title:         video_.Title,
