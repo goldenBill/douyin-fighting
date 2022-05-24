@@ -19,7 +19,7 @@ type UserResponse struct {
 	User User `json:"user"`
 }
 
-// Register : 用户注册账号
+// Register 用户注册账号
 func Register(c *gin.Context) {
 	username := c.Query("username")
 	password := c.Query("password")
@@ -42,7 +42,7 @@ func Register(c *gin.Context) {
 	})
 }
 
-// Login : 用户登录
+// Login 用户登录
 func Login(c *gin.Context) {
 	username := c.Query("username")
 	password := c.Query("password")
@@ -65,7 +65,7 @@ func Login(c *gin.Context) {
 	})
 }
 
-// UserInfo : 获取用户信息
+// UserInfo 获取用户信息
 func UserInfo(c *gin.Context) {
 	//获取指定 userID 的信息
 	userID, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)

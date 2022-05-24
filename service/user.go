@@ -7,7 +7,7 @@ import (
 	"github.com/goldenBill/douyin-fighting/util"
 )
 
-// Register : 用户注册
+// Register 用户注册
 func Register(username string, password string) (user *dao.User, err error) {
 	//判断用户名是否存在
 	rowsAffected := global.GVAR_DB.Debug().Where("name = ?", username).Limit(1).Find(&user).RowsAffected
@@ -26,7 +26,7 @@ func Register(username string, password string) (user *dao.User, err error) {
 	return
 }
 
-// Login : 用户登录
+// Login 用户登录
 func Login(username string, password string) (user *dao.User, err error) {
 	//检查用户名是否存在
 	rowsAffected := global.GVAR_DB.Debug().Where("name = ?", username).Limit(1).Find(&user).RowsAffected
@@ -43,7 +43,7 @@ func Login(username string, password string) (user *dao.User, err error) {
 	return
 }
 
-// UserInfoByUserID : 通过 UserID 获取用户信息
+// UserInfoByUserID 通过 UserID 获取用户信息
 func UserInfoByUserID(userID uint64) (user *dao.User, err error) {
 	//检查 userID 是否存在；若存在，获取用户信息
 	rowsAffected := global.GVAR_DB.Debug().Where("user_id = ?", userID).Limit(1).Find(&user).RowsAffected

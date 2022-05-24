@@ -15,7 +15,7 @@ type UserClaims struct {
 	jwt.RegisteredClaims
 }
 
-// GenerateToken : 生成 token
+// GenerateToken 生成 token
 func GenerateToken(user *dao.User) (string, error) {
 	//获取全局签名
 	mySigningKey := []byte(global.GVAR_JWT_SigningKey)
@@ -35,7 +35,7 @@ func GenerateToken(user *dao.User) (string, error) {
 	return token.SignedString(mySigningKey)
 }
 
-// ParseToken : 解析 token
+// ParseToken 解析 token
 func ParseToken(tokenString string) (*UserClaims, error) {
 	//获取全局签名
 	mySigningKey := []byte(global.GVAR_JWT_SigningKey)
