@@ -100,7 +100,7 @@ func FavoriteList(c *gin.Context) {
 			ID:            videoDao.ID,
 			Author:        author,
 			PlayUrl:       "http://" + c.Request.Host + "/static/video/" + videoDao.PlayName,
-			CoverUrl:      "http://" + c.Request.Host + "/static/public/" + videoDao.CoverName,
+			CoverUrl:      "http://" + c.Request.Host + "/static/cover/" + videoDao.CoverName,
 			FavoriteCount: favoriteCount,
 			CommentCount:  0,
 			IsFavorite:    isFavorite,
