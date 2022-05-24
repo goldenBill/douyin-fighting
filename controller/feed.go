@@ -46,18 +46,20 @@ func Feed(c *gin.Context) {
 		})
 		return
 	}
+
 	var (
 		videoList []Video
 		author_   *dao.User
 	)
+	// 用户是否传入了合法有效的token（是否登录）
 	isLogged := false
+	//  未登录时isFollow与isFavorite为false
 	isFollow := false
 	isFavorite := false
-	token := c.Query("token")
 
 	var userID uint64
 	// 判断传入的token是否合法，用户是否存在
-	if token != "" {
+	if token := c.Query("token"); token != "" {
 		claims, err := util.ParseToken(token)
 		if err == nil {
 			userID = claims.UserID
@@ -84,6 +86,7 @@ func Feed(c *gin.Context) {
 		}
 
 		if isLogged {
+			// 当用户登录时，判断是否关注当前作者
 			isFollow = false
 		}
 		author := User{

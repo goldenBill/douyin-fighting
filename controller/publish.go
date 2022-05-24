@@ -90,31 +90,57 @@ func Publish(c *gin.Context) {
 
 // PublishList all users have same publish video list
 func PublishList(c *gin.Context) {
-	// 获取 userID
-	userID, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
+	var err error
+	// 获取 authorID
+	authorID, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
 
 	var videos []dao.Video
-	if err := service.GetPublishedVideos(&videos, userID); err != nil {
+	if err = service.GetPublishedVideos(&videos, authorID); err != nil {
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
-	var videoList []Video
+
+	var (
+		videoList []Video
+		author_   *dao.User
+	)
+	// 用户是否传入了合法有效的token（是否登录）
+	isLogged := false
+	//  未登录时isFollow与isFavorite为false
+	isFollow := false
+	isFavorite := false
+
+	var userID uint64
+	// 判断传入的token是否合法，用户是否存在
+	if token := c.Query("token"); token != "" {
+		claims, err := util.ParseToken(token)
+		if err == nil {
+			userID = claims.UserID
+			if service.IsUserIDExist(userID) {
+				isLogged = true
+			}
+		}
+	}
+
 	for _, video_ := range videos {
 		// 二次确认返回的视频与封面是服务器存在的
 		VideoLocation := global.GVAR_VIDEO_ADDR + video_.PlayName
-		if _, err := os.Stat(VideoLocation); err != nil {
+		if _, err = os.Stat(VideoLocation); err != nil {
 			continue
 		}
 		CoverLocation := global.GVAR_COVER_ADDR + video_.CoverName
-		if _, err := os.Stat(CoverLocation); err != nil {
+		if _, err = os.Stat(CoverLocation); err != nil {
 			continue
 		}
-		author_, err := service.UserInfoByUserID(video_.AuthorID)
+		author_, err = service.UserInfoByUserID(authorID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
 		}
-		isFollow := false
+		if isLogged {
+			// 当用户登录时，判断是否关注当前作者
+			isFollow = false
+		}
 		author := User{
 			ID:            author_.UserID,
 			Name:          author_.Name,
@@ -122,7 +148,10 @@ func PublishList(c *gin.Context) {
 			FollowerCount: author_.FollowerCount,
 			IsFollow:      isFollow,
 		}
-		isFavorite := service.GetFavoriteStatus(userID, video_.VideoID)
+		if isLogged {
+			// 当用户登录时，判断是否给视频点赞
+			isFavorite = service.GetFavoriteStatus(userID, video_.VideoID)
+		}
 		video := Video{
 			ID:            video_.VideoID,
 			Author:        author,
