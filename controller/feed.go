@@ -54,10 +54,13 @@ func Feed(c *gin.Context) {
 	isFollow := false
 	isFavorite := false
 	token := c.Query("token")
+
+	var userID uint64
+	// 判断传入的token是否合法，用户是否存在
 	if token != "" {
 		claims, err := util.ParseToken(token)
 		if err == nil {
-			userID := claims.UserID
+			userID = claims.UserID
 			if service.IsUserIDExist(userID) {
 				isLogged = true
 			}
@@ -92,7 +95,8 @@ func Feed(c *gin.Context) {
 		}
 
 		if isLogged {
-			isFavorite = false
+			// 当用户登录时，判断是否给视频点赞
+			isFavorite = service.GetFavoriteStatus(userID, video_.VideoID)
 		}
 
 		video := Video{
