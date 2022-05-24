@@ -40,3 +40,27 @@ func GetVideoListByIDs(videos *[]dao.Video, videoIDs []uint64) error {
 	err := global.GVAR_DB.Debug().Where("video_id in (?)", videoIDs).Find(videos).Error
 	return err
 }
+
+// 点赞数加1
+func FavoriteCountPlus(videoID uint64) error {
+	err := global.GVAR_DB.Debug().Model(&dao.Video{}).Where("video_id = ?", videoID).Update("favorite_count", gorm.Expr("favorite_count + 1")).Error
+	return err
+}
+
+// 点赞数减1
+func FavoriteCountMinus(videoID uint64) error {
+	err := global.GVAR_DB.Debug().Model(&dao.Video{}).Where("video_id = ?", videoID).Update("favorite_count", gorm.Expr("favorite_count - 1")).Error
+	return err
+}
+
+// 评论数加1
+func CommentCountPlus(videoID uint64) error {
+	err := global.GVAR_DB.Debug().Model(&dao.Video{}).Where("video_id = ?", videoID).Update("comment_count", gorm.Expr("comment_count + 1")).Error
+	return err
+}
+
+// 评论数减1
+func CommentCountMinus(videoID uint64) error {
+	err := global.GVAR_DB.Debug().Model(&dao.Video{}).Where("video_id = ?", videoID).Update("comment_count", gorm.Expr("comment_count - 1")).Error
+	return err
+}
