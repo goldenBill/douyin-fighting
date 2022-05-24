@@ -11,7 +11,7 @@ type Video struct {
 	FavoriteCount int64     `gorm:"column:favorite_count;NOT NULL"`
 	CommentCount  int64     `gorm:"column:comment_count;NOT NULL"`
 	AuthorID      uint64    `gorm:"column:author_id;NOT NULL"`
-	CreatedAt     time.Time `gorm:"column:created_at;autoCreateTime:true;NOT NULL"`
+	CreatedAt     time.Time `gorm:"column:created_at"`
 	ExtInfo       *string   `gorm:"column:ext_info"`
 }
 

@@ -13,13 +13,13 @@ dbName := "douyin"     //数据库名
 //dsn := "用户名:密码@tcp(地址:端口)/数据库名"
 dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", username, password, host, port, dbName)
 ```
-- 自动生成数据库（默认关闭）
+- 自动生成数据库（默认开启，不会覆盖数据）
 ```go
 package global
 
 GVAR_AUTO_CREATE_DB bool = true     //是否自动生成数据库
 ```
-- 手动导入数据库 **运行 douyin.sql**
+
 ## 2. 用户注册登录接口
 
 ### 主要文件及功能说明
@@ -27,7 +27,6 @@ GVAR_AUTO_CREATE_DB bool = true     //是否自动生成数据库
 douyin-fighting/
 │
 ├─controller
-│     service.go        注册数据库交互服务
 │     user.go           用户注册登录
 │
 ├─dao
@@ -49,7 +48,6 @@ douyin-fighting/
 douyin-fighting/
 │
 ├─controller
-│     service.go        注册数据库交互服务
 │     feed.go           视频推送
 │     publish.go        视频发布以及信息
 │

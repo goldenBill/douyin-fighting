@@ -11,7 +11,7 @@ type User struct {
 	Password      string    `gorm:"column:password;NOT NULL"`
 	FollowCount   int64     `gorm:"column:follow_count;default:0;NOT NULL"`
 	FollowerCount int64     `gorm:"column:follower_count;default:0;NOT NULL"`
-	CreatedAt     time.Time `gorm:"column:created_at;autoCreateTime:true;NOT NULL"`
+	CreatedAt     time.Time `gorm:"column:created_at"`
 	ExtInfo       *string   `gorm:"column:ext_info"`
 }
 
