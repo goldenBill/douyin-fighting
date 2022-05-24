@@ -63,7 +63,23 @@ func IsUserIDExist(userID uint64) bool {
 }
 
 // GetUserListByUserIDs 根据UserIDs获取对应的用户列表
-func GetUserListByUserIDs(UserIDs int64) (UserList []dao.User, err error) {
-	err = global.GVAR_DB.Debug().Where("user_id in (?)", UserIDs).Find(&UserList).Error
-	return UserList, err
+func GetUserListByUserIDs(UserIDs []uint64) (UserList []dao.User, err error) {
+	var lastUserID uint64
+	var lastUser dao.User
+	for i, userID := range UserIDs {
+		if i > 0 && lastUserID == userID {
+			// 与上一个id相同，不用查询数据库
+			UserList = append(UserList, lastUser)
+			continue
+		}
+		var user dao.User
+		err = global.GVAR_DB.Model(&dao.User{}).Where("user_id = ?", userID).First(&user).Error
+		if err != nil {
+			return []dao.User{}, err
+		}
+		UserList = append(UserList, user)
+		lastUser = user
+		lastUserID = userID
+	}
+	return UserList, nil
 }
