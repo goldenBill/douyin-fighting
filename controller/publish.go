@@ -21,7 +21,7 @@ type VideoListResponse struct {
 func Publish(c *gin.Context) {
 	// 获取 userID
 	userID := c.GetUint64("UserID")
-
+	// 判断userID是否存在
 	if !service.IsUserIDExist(userID) {
 		c.JSON(http.StatusForbidden, Response{StatusCode: 1, StatusMsg: "User doesn't exist"})
 		return
@@ -40,6 +40,7 @@ func Publish(c *gin.Context) {
 
 	videoID, err := global.GVAR_ID_GENERATOR.NextID()
 	if err != nil {
+		// 无法生成ID
 		c.JSON(http.StatusInternalServerError, Response{
 			StatusCode: 1,
 			StatusMsg:  err.Error(),
@@ -54,6 +55,7 @@ func Publish(c *gin.Context) {
 	coverSavePath := filepath.Join(global.GVAR_COVER_ADDR, coverName)
 
 	if err = c.SaveUploadedFile(data, videoSavePath); err != nil {
+		// 视频无法保存
 		c.JSON(http.StatusInternalServerError, Response{
 			StatusCode: 1,
 			StatusMsg:  err.Error(),
@@ -62,6 +64,7 @@ func Publish(c *gin.Context) {
 	}
 
 	if err = util.GetFrame(videoSavePath, coverSavePath); err != nil {
+		// 封面无法保存
 		c.JSON(http.StatusInternalServerError, Response{
 			StatusCode: 1,
 			StatusMsg:  err.Error(),
@@ -71,6 +74,7 @@ func Publish(c *gin.Context) {
 
 	err = service.PublishVideo(userID, videoID, videoName, coverName, title)
 	if err != nil {
+		// 无法写库
 		c.JSON(http.StatusInternalServerError, Response{
 			StatusCode: 1,
 			StatusMsg:  err.Error(),
@@ -96,6 +100,7 @@ func PublishList(c *gin.Context) {
 	}
 	var videoList []Video
 	for _, video_ := range videos {
+		// 二次确认返回的视频与封面是服务器存在的
 		VideoLocation := global.GVAR_VIDEO_ADDR + video_.PlayName
 		if _, err := os.Stat(VideoLocation); err != nil {
 			continue
@@ -104,7 +109,7 @@ func PublishList(c *gin.Context) {
 		if _, err := os.Stat(CoverLocation); err != nil {
 			continue
 		}
-		author_, err := service.UserInfoByUserID(video_.UserID)
+		author_, err := service.UserInfoByUserID(video_.AuthorID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return

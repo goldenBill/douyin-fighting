@@ -78,9 +78,9 @@ func FavoriteList(c *gin.Context) {
 
 	var videoList []Video
 	for _, videoDao := range videoDaoList {
-		var followCount = service.GetFollowCount(videoDao.UserID)
-		var followerCount = service.GetFollowerCount(videoDao.UserID)
-		userDao, err := service.UserInfoByUserID(videoDao.UserID)
+		var followCount = service.GetFollowCount(videoDao.AuthorID)
+		var followerCount = service.GetFollowerCount(videoDao.AuthorID)
+		userDao, err := service.UserInfoByUserID(videoDao.AuthorID)
 		if err != nil {
 			c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "User doesn't exist"})
 			return
@@ -88,7 +88,7 @@ func FavoriteList(c *gin.Context) {
 		var name = userDao.Name
 		var isFollow = false
 		var author = User{
-			ID:            videoDao.UserID,
+			ID:            videoDao.AuthorID,
 			Name:          name,
 			FollowCount:   followCount,
 			FollowerCount: followerCount,
