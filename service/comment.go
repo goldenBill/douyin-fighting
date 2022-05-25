@@ -6,7 +6,7 @@ import (
 )
 
 // AddComment 用户userID向视频videoID发送评论，评论内容为commentText
-func AddComment(userID uint64, videoID uint64, commentText string) error {
+func AddComment(userID uint64, videoID uint64, commentText string) (dao.Comment, error) {
 	commentID, _ := global.GVAR_ID_GENERATOR.NextID()
 	comment := dao.Comment{
 		CommentID: commentID,
@@ -16,9 +16,13 @@ func AddComment(userID uint64, videoID uint64, commentText string) error {
 	}
 	err := global.GVAR_DB.Create(&comment).Error
 	if err != nil {
-		return err
+		return dao.Comment{}, err
 	}
-	return CommentCountPlus(videoID) // 评论+1
+	err = CommentCountPlus(videoID) // 评论+1
+	if err != nil {
+		return dao.Comment{}, err
+	}
+	return comment, nil
 }
 
 // DeleteComment 用户userID删除视频videoID的评论commentID

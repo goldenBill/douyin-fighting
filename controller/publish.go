@@ -48,7 +48,7 @@ func Publish(c *gin.Context) {
 		return
 	}
 	name := strconv.FormatUint(videoID, 10)
-	videoName := name + ".mp4"
+	videoName := name + c.GetString("FileType")
 	coverName := name + ".jpg"
 
 	videoSavePath := filepath.Join(global.GVAR_VIDEO_ADDR, videoName)

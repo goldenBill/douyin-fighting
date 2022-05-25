@@ -29,7 +29,6 @@ func InitRouter() {
 	{
 		// basic apis
 		authed.GET("/user/", controller.UserInfo)
-		authed.POST("/publish/action/", controller.Publish)
 
 		// extra apis - I
 		authed.POST("/favorite/action/", controller.FavoriteAction)
@@ -41,5 +40,13 @@ func InitRouter() {
 		authed.GET("/relation/follower/list/", controller.FollowerList)
 	}
 
-	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+	authed2 := apiRouter.Group("/")
+	authed2.Use(middleware.JWT())
+	authed2.Use(middleware.FileCheck())
+	{
+		// basic apis
+		authed2.POST("/publish/action/", controller.Publish)
+	}
+
+	r.Run() // listen and serve on 0.0.0.0:8080 (for windows
 }

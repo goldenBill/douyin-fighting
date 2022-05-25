@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/goldenBill/douyin-fighting/service"
 	"net/http"
@@ -15,6 +14,11 @@ type CommentActionRequest struct {
 	ActionType  uint   `form:"action_type" json:"action_type"`
 	CommentText string `form:"comment_text" json:"comment_text"`
 	CommentID   uint64 `form:"comment_id" json:"comment_id"`
+}
+
+type CommentActionResponse struct {
+	Response
+	Comment Comment `json:"comment,omitempty"`
 }
 
 // CommentListRequest 评论列表的请求
@@ -35,7 +39,6 @@ func CommentAction(c *gin.Context) {
 	// 参数绑定
 	var r CommentActionRequest
 	err := c.ShouldBind(&r)
-	fmt.Printf("%#v\n", r)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "bind error"})
 		return
@@ -54,19 +57,36 @@ func CommentAction(c *gin.Context) {
 
 	// 评论操作
 	if r.ActionType == 1 {
-		err = service.AddComment(r.UserID, r.VideoID, r.CommentText)
+		commentDao, err := service.AddComment(r.UserID, r.VideoID, r.CommentText)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
+			return
+		}
+		userDao, _ := service.UserInfoByUserID(commentDao.UserID)
+
+		c.JSON(http.StatusOK, CommentActionResponse{
+			Response: Response{StatusCode: 0},
+			Comment: Comment{
+				ID: commentDao.CommentID,
+				User: User{
+					ID:            userDao.UserID,
+					Name:          userDao.Name,
+					FollowCount:   userDao.FollowCount,
+					FollowerCount: userDao.FollowerCount,
+					IsFollow:      false,
+				},
+				Content:    commentDao.Content,
+				CreateDate: commentDao.CreatedAt.Format("01-02"),
+			},
+		})
 	} else {
 		err = service.DeleteComment(r.UserID, r.VideoID, r.CommentID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
+			return
+		}
+		c.JSON(http.StatusOK, Response{StatusCode: 0})
 	}
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
-		return
-	}
-	if err != nil {
-
-	}
-
-	c.JSON(http.StatusOK, Response{StatusCode: 0})
 }
 
 // CommentList all videos have same demo comment list
