@@ -17,6 +17,7 @@ var (
 	GVAR_FEED_NUM        int             = 30
 	GVAR_VIDEO_ADDR      string          = "./public/video/"
 	GVAR_COVER_ADDR      string          = "./public/cover/"
-	GVAR_WHITELIST_VIDEO map[string]bool = map[string]bool{"mp4": true, "avi": true, "wmv": true, "mpeg": true, "mov": true, "flv": true, "rmvb": true, "3gb": true, "vob": true, "m4v": true}
+	GVAR_WHITELIST_VIDEO map[string]bool = map[string]bool{".mp4": true, ".avi": true, ".wmv": true, ".mpeg": true, ".mov": true, ".flv": true, ".rmvb": true, ".3gb": true, ".vob": true, ".m4v": true}
 	GVAR_FILE_TYPE_MAP   sync.Map
+	GVAR_FILE_MAX_SIZE   int64 = 200 * 1024 * 1024 // 200MB
 )

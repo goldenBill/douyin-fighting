@@ -50,10 +50,19 @@ func GetFileType(fSrc []byte) string {
 	return fileType
 }
 
-// 定义中间
+// 定义中间件
 func FileCheck() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		data, err := c.FormFile("data")
+		if data.Size >= global.GVAR_FILE_MAX_SIZE {
+			// 检验上传文件的大小
+			c.JSON(http.StatusForbidden, controller.Response{
+				StatusCode: 1,
+				StatusMsg:  "Published video should be smaller than 200 MB",
+			})
+			c.Abort()
+			return
+		}
 		if err != nil {
 			// 状态码不确定
 			c.JSON(http.StatusOK, controller.Response{
@@ -63,9 +72,10 @@ func FileCheck() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		fileSuffix := path.Ext(data.Filename)[1:]
+		fileSuffix := path.Ext(data.Filename)
+		println(fileSuffix)
 		if _, ok := global.GVAR_WHITELIST_VIDEO[fileSuffix]; ok == false {
-			//println(fileSuffix)
+			// 文件后缀名不在白名单内
 			c.JSON(http.StatusForbidden, controller.Response{
 				StatusCode: 1,
 				StatusMsg:  "Unsupported video type",
@@ -73,11 +83,14 @@ func FileCheck() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		// 通过文件字节流判断文件真实类型
 		f, err := data.Open()
 		fSrc, err := ioutil.ReadAll(f)
 		fileType := GetFileType(fSrc)
+		println(fileType)
+
 		if fileType == "" {
-			println("here\n\n\n")
+			// 文件真实类型不在白名单内
 			c.JSON(http.StatusForbidden, controller.Response{
 				StatusCode: 1,
 				StatusMsg:  "Unsupported video type",

@@ -99,7 +99,7 @@ func Feed(c *gin.Context) {
 
 		if isLogged {
 			// 当用户登录时，判断是否给视频点赞
-			isFavorite = service.GetFavoriteStatus(userID, video_.VideoID)
+			isFavorite = false
 		}
 
 		video := Video{
@@ -117,6 +117,8 @@ func Feed(c *gin.Context) {
 
 	//本次返回的视频中发布最早的时间
 	nextTime := videos[len(videos)-1].CreatedAt.UnixMilli()
+	println(nextTime)
+	println("\n\n\n\n\n\n\n\n")
 
 	c.JSON(http.StatusOK, FeedResponse{
 		Response:  Response{StatusCode: 0},
