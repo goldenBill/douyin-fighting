@@ -50,7 +50,7 @@ func FavoriteAction(c *gin.Context) {
 		err = service.CancelFavorite(r.UserID, r.VideoID)
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "server error"})
+		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "server error"})
 		return
 	}
 

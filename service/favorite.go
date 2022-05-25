@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
 )
@@ -10,11 +11,13 @@ func FavoriteAction(userID, videoID uint64) error {
 	f := dao.Favorite{}
 
 	// 得到结果
-	result := global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).First(&f)
+	result := global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).Limit(1).Find(&f)
 
 	if result.RowsAffected != 0 {
 		// 数据库中的条目存在
-		if f.IsFavorite == false {
+		if f.IsFavorite {
+			return errors.New("已点赞")
+		} else {
 			// 更新点赞状态
 			f.IsFavorite = true
 			err := global.GVAR_DB.Save(&f).Error
@@ -45,7 +48,7 @@ func FavoriteAction(userID, videoID uint64) error {
 func CancelFavorite(userID, videoID uint64) error {
 	var f dao.Favorite
 	// 得到结果
-	result := global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).First(&f)
+	result := global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).Limit(1).Find(&f)
 
 	if result.RowsAffected != 0 {
 		// 数据库中的条目存在
@@ -86,6 +89,6 @@ func GetFavoriteListByUserID(userID uint64) ([]dao.Video, error) {
 func GetFavoriteStatus(userID, videoID uint64) bool {
 	var f dao.Favorite
 	// 得到结果
-	global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).First(&f)
+	global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).Limit(1).Find(&f)
 	return f.IsFavorite
 }

@@ -10,8 +10,8 @@ import (
 // Register 用户注册
 func Register(username string, password string) (user *dao.User, err error) {
 	//判断用户名是否存在
-	rowsAffected := global.GVAR_DB.Debug().Where("name = ?", username).Limit(1).Find(&user).RowsAffected
-	if rowsAffected != 0 {
+	result := global.GVAR_DB.Debug().Where("name = ?", username).Limit(1).Find(&user)
+	if result.RowsAffected != 0 {
 		err = errors.New("user already exists")
 		return
 	}
@@ -29,8 +29,8 @@ func Register(username string, password string) (user *dao.User, err error) {
 // Login 用户登录
 func Login(username string, password string) (user *dao.User, err error) {
 	//检查用户名是否存在
-	rowsAffected := global.GVAR_DB.Debug().Where("name = ?", username).Limit(1).Find(&user).RowsAffected
-	if rowsAffected == 0 {
+	result := global.GVAR_DB.Debug().Where("name = ?", username).Limit(1).Find(&user)
+	if result.RowsAffected == 0 {
 		err = errors.New("username does not exist")
 		return
 	}
@@ -46,8 +46,8 @@ func Login(username string, password string) (user *dao.User, err error) {
 // UserInfoByUserID 通过 UserID 获取用户信息
 func UserInfoByUserID(userID uint64) (user *dao.User, err error) {
 	//检查 userID 是否存在；若存在，获取用户信息
-	rowsAffected := global.GVAR_DB.Debug().Where("user_id = ?", userID).Limit(1).Find(&user).RowsAffected
-	if rowsAffected == 0 {
+	result := global.GVAR_DB.Debug().Where("user_id = ?", userID).Limit(1).Find(&user)
+	if result.RowsAffected == 0 {
 		err = errors.New("username does not exist")
 		return
 	}
@@ -63,23 +63,18 @@ func IsUserIDExist(userID uint64) bool {
 }
 
 // GetUserListByUserIDs 根据UserIDs获取对应的用户列表
-func GetUserListByUserIDs(UserIDs []uint64) (UserList []dao.User, err error) {
-	var lastUserID uint64
-	var lastUser dao.User
-	for i, userID := range UserIDs {
-		if i > 0 && lastUserID == userID {
-			// 与上一个id相同，不用查询数据库
-			UserList = append(UserList, lastUser)
-			continue
-		}
-		var user dao.User
-		err = global.GVAR_DB.Model(&dao.User{}).Where("user_id = ?", userID).First(&user).Error
-		if err != nil {
-			return []dao.User{}, err
-		}
-		UserList = append(UserList, user)
-		lastUser = user
-		lastUserID = userID
+func GetUserListByUserIDs(UserIDs []uint64) (userList []dao.User, err error) {
+	var uniqueUserList []dao.User
+	result := global.GVAR_DB.Debug().Where("user_id in ?", UserIDs).Find(&uniqueUserList)
+	if result.Error != nil {
+		err = errors.New("query GetUserListByUserIDs error")
 	}
-	return UserList, nil
+	mapUserIDToUser := make(map[uint64]*dao.User)
+	for _, user := range uniqueUserList {
+		mapUserIDToUser[user.UserID] = &user
+	}
+	for _, userID := range UserIDs {
+		userList = append(userList, *mapUserIDToUser[userID])
+	}
+	return
 }
