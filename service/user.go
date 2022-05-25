@@ -73,8 +73,9 @@ func GetUserListByUserIDs(UserIDs []uint64) (userList []dao.User, err error) {
 	for idx, user := range uniqueUserList {
 		mapUserIDToUser[user.UserID] = &uniqueUserList[idx]
 	}
-	for _, userID := range UserIDs {
-		userList = append(userList, *mapUserIDToUser[userID])
+	userList = make([]dao.User, len(UserIDs))
+	for idx, userID := range UserIDs {
+		userList[idx] = *mapUserIDToUser[userID]
 	}
 	return
 }

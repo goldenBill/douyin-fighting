@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/goldenBill/douyin-fighting/service"
+	"github.com/goldenBill/douyin-fighting/util"
 	"net/http"
 )
 
@@ -73,7 +74,7 @@ func CommentAction(c *gin.Context) {
 					Name:          userDao.Name,
 					FollowCount:   userDao.FollowCount,
 					FollowerCount: userDao.FollowerCount,
-					IsFollow:      false,
+					IsFollow:      service.GetIsFollowStatus(r.UserID, userDao.UserID),
 				},
 				Content:    commentDao.Content,
 				CreateDate: commentDao.CreatedAt.Format("01-02"),
@@ -101,13 +102,53 @@ func CommentList(c *gin.Context) {
 
 	commentDaoList, userDaoList := service.GetCommentListAndUserList(r.VideoID)
 
+	var (
+		isFollowList []bool
+		isLogged     = false // 用户是否传入了合法有效的token（是否登录）
+		isFollow     bool
+	)
+
+	var userID uint64
+	// 判断传入的token是否合法，用户是否存在
+	if token := c.Query("token"); token != "" {
+		claims, err := util.ParseToken(token)
+		if err == nil {
+			userID = claims.UserID
+			if service.IsUserIDExist(userID) {
+				isLogged = true
+			}
+		}
+	}
+
+	if isLogged {
+		// 当用户登录时 一次性获取用户是否点赞了列表中的视频以及是否关注了视频的作者
+		authorIdList := make([]uint64, len(commentDaoList))
+		for i, user_ := range userDaoList {
+			authorIdList[i] = user_.UserID
+		}
+
+		isFollowList, err = service.GetIsFollowStatusList(userID, authorIdList)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
+			return
+		}
+	}
+
 	commentList := make([]Comment, 0, len(commentDaoList))
 	for i := 0; i < len(commentDaoList); i++ {
+		// 未登录时默认为未关注未点赞
+		if isLogged {
+			// 当用户登录时，判断是否关注当前作者
+			isFollow = isFollowList[i]
+		} else {
+			isFollow = false
+		}
 		user := User{
 			ID:            userDaoList[i].ID,
 			Name:          userDaoList[i].Name,
 			FollowCount:   userDaoList[i].FollowCount,
 			FollowerCount: userDaoList[i].FollowerCount,
+			IsFollow:      isFollow,
 		}
 		comment := Comment{
 			ID:         commentDaoList[i].ID,

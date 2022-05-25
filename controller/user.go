@@ -101,8 +101,8 @@ func UserInfo(c *gin.Context) {
 		User: User{
 			ID:            userID,
 			Name:          userDao.Name,
-			FollowCount:   0,
-			FollowerCount: 0,
+			FollowCount:   userDao.FollowCount,
+			FollowerCount: userDao.FollowerCount,
 			IsFollow:      isFollow,
 		},
 	})

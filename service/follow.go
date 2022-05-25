@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
 	"gorm.io/gorm"
@@ -28,6 +29,8 @@ func AddFollow(followerID, celebrityID uint64) error {
 			if err := tx.Create(&follow).Error; err != nil {
 				return err
 			}
+		} else {
+			return nil
 		}
 		// 更新博主粉丝数
 		if err := tx.Model(&dao.User{}).Where("user_id = ?", celebrityID).
@@ -51,12 +54,13 @@ func CancelFollow(followerID, celebrityID uint64) error {
 		// 得到结果
 		result := tx.Model(&dao.Follow{}).Where("celebrity_id = ? and follower_id = ?", celebrityID, followerID).Limit(1).Find(&follow)
 		// 数据库中的条目存在 且 有关注
-		if result.RowsAffected != 0 && follow.IsFollow {
-			// 更新关注状态
-			follow.IsFollow = false
-			if err := tx.Save(&follow).Error; err != nil {
-				return err
-			}
+		if result.RowsAffected == 0 || !follow.IsFollow {
+			return nil
+		}
+		// 更新关注状态
+		follow.IsFollow = false
+		if err := tx.Save(&follow).Error; err != nil {
+			return err
 		}
 		// 更新博主粉丝数
 		if err := tx.Model(&dao.User{}).Where("user_id = ?", celebrityID).
@@ -112,16 +116,20 @@ func GetIsFollowStatus(followerID, celebrityID uint64) bool {
 }
 
 // GetIsFollowStatusList 根据 celebrityIDList 和 followerID 返回关注状态
-func GetIsFollowStatusList(followerID uint64, celebrityIDList []uint64) []bool {
+func GetIsFollowStatusList(followerID uint64, celebrityIDList []uint64) ([]bool, error) {
 	var uniqueFollows []dao.Follow
-	global.GVAR_DB.Model(&dao.Follow{}).Where("celebrity_id in ? and follower_id = ?", celebrityIDList, followerID).Find(&uniqueFollows)
+	result := global.GVAR_DB.Model(&dao.Follow{}).Where("celebrity_id in ? and follower_id = ?", celebrityIDList, followerID).Find(&uniqueFollows)
+	if result.Error != nil {
+		err := errors.New("query GetIsFollowStatusList error")
+		return nil, err
+	}
 	mapCelebrityIDToIsFollow := make(map[uint64]bool, len(uniqueFollows))
 	for _, follow := range uniqueFollows {
 		mapCelebrityIDToIsFollow[follow.CelebrityID] = follow.IsFollow
 	}
 	isFollowStatusList := make([]bool, len(celebrityIDList))
-	for _, celebrityID := range celebrityIDList {
-		isFollowStatusList = append(isFollowStatusList, mapCelebrityIDToIsFollow[celebrityID])
+	for idx, celebrityID := range celebrityIDList {
+		isFollowStatusList[idx] = mapCelebrityIDToIsFollow[celebrityID]
 	}
-	return isFollowStatusList
+	return isFollowStatusList, nil
 }

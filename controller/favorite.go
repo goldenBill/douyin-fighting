@@ -50,7 +50,7 @@ func FavoriteAction(c *gin.Context) {
 		err = service.CancelFavorite(r.UserID, r.VideoID)
 	}
 	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "server error"})
+		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "server error"})
 		return
 	}
 
@@ -89,8 +89,10 @@ func FavoriteList(c *gin.Context) {
 		return
 	}
 
+	celebrityIDList := make([]uint64, len(videoDaoList))
+	videoIDList := make([]uint64, len(videoDaoList))
 	var videoList []Video
-	for _, videoDao := range videoDaoList {
+	for idx, videoDao := range videoDaoList {
 		userDao, err := service.UserInfoByUserID(videoDao.AuthorID)
 		if err != nil {
 			continue
@@ -102,10 +104,6 @@ func FavoriteList(c *gin.Context) {
 			FollowerCount: userDao.FollowerCount,
 		}
 		var isFavorite bool // 是否对视频点赞
-		if isLogin {
-			// 登录时，获取是否点赞，否则总是为false
-			isFavorite = service.GetFavoriteStatus(userID, videoDao.VideoID)
-		}
 		video := Video{
 			ID:            videoDao.ID,
 			Author:        author,
@@ -116,6 +114,18 @@ func FavoriteList(c *gin.Context) {
 			IsFavorite:    isFavorite,
 		}
 		videoList = append(videoList, video)
+		celebrityIDList[idx] = videoDao.AuthorID
+		videoIDList[idx] = videoDao.VideoID
+	}
+	// 批量处理
+	if isLogin {
+		// 登录时，获取是否关注，否则总是为false
+		isFollowList, _ := service.GetIsFollowStatusList(userID, celebrityIDList)
+		isFavoriteList, _ := service.GetFavoriteStatusList(userID, videoIDList)
+		for i := 0; i < len(videoDaoList); i++ {
+			videoList[i].Author.IsFollow = isFollowList[i]
+			videoList[i].IsFavorite = isFavoriteList[i]
+		}
 	}
 
 	c.JSON(http.StatusOK, VideoListResponse{
