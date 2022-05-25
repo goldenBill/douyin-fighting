@@ -2,10 +2,13 @@ package controller
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/goldenBill/douyin-fighting/global"
 	"github.com/goldenBill/douyin-fighting/service"
 	"github.com/goldenBill/douyin-fighting/util"
 	"net/http"
+	"regexp"
 	"strconv"
+	"unicode/utf8"
 )
 
 type UserLoginResponse struct {
@@ -23,6 +26,17 @@ type UserResponse struct {
 func Register(c *gin.Context) {
 	username := c.Query("username")
 	password := c.Query("password")
+	// 验证用户名合法性
+	if utf8.RuneCountInString(username) > global.MAX_USERNAME_LENGTH ||
+		utf8.RuneCountInString(username) <= 0 {
+		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "invalid username"})
+		return
+	}
+	//验证密码合法性
+	if ok, _ := regexp.MatchString(global.MIN_PASSWORD_PATTERN, password); !ok {
+		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "密码长度6-32，由字母大小写下划线组成"})
+		return
+	}
 	//注册用户到数据库
 	userDao, err := service.Register(username, password)
 	if err != nil {

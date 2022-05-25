@@ -5,10 +5,12 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
-	"github.com/jmoiron/sqlx"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"log"
+	"os"
+	"time"
 )
 
 func InitMySQL() {
@@ -21,23 +23,23 @@ func InitMySQL() {
 	//dsn := "用户名:密码@tcp(地址:端口)/数据库名"
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", username, password, host, port, dbName)
 
-	// 配置sqlx连接到MySQL
-	if db, err := sqlx.Open("mysql", dsn); err == nil {
-		db.SetConnMaxLifetime(100) // 设置数据库最大连接数
-		db.SetMaxIdleConns(10)     // 设置上数据库最大闲置连接数
-		global.GVAR_SQLX_DB = db
-	} else {
-		panic("connect server failed")
-	}
-
 	// 配置Gorm连接到MySQL
 	mysqlConfig := mysql.Config{
 		DSN:                       dsn,   // DSN
 		DefaultStringSize:         256,   // string 类型字段的默认长度
 		SkipInitializeWithVersion: false, // 根据当前 MySQL 版本自动配置
 	}
+	newLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer（日志输出的目标，前缀和日志包含的内容——译者注）
+		logger.Config{
+			SlowThreshold:             time.Millisecond * 20, // 慢 SQL 阈值
+			LogLevel:                  logger.Warn,           // 日志级别
+			IgnoreRecordNotFoundError: true,                  // 忽略ErrRecordNotFound（记录未找到）错误
+			Colorful:                  false,                 // 禁用彩色打印
+		},
+	)
 	if db, err := gorm.Open(mysql.New(mysqlConfig), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: newLogger,
 	}); err == nil {
 		sqlDB, _ := db.DB()
 		sqlDB.SetMaxOpenConns(100) // 设置数据库最大连接数
