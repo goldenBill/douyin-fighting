@@ -64,22 +64,17 @@ func IsUserIDExist(userID uint64) bool {
 
 // GetUserListByUserIDs 根据UserIDs获取对应的用户列表
 func GetUserListByUserIDs(UserIDs []uint64) (UserList []dao.User, err error) {
-	var lastUserID uint64
-	var lastUser dao.User
-	for i, userID := range UserIDs {
-		if i > 0 && lastUserID == userID {
-			// 与上一个id相同，不用查询数据库
-			UserList = append(UserList, lastUser)
-			continue
-		}
-		var user dao.User
-		err = global.GVAR_DB.Model(&dao.User{}).Where("user_id = ?", userID).First(&user).Error
-		if err != nil {
-			return []dao.User{}, err
-		}
-		UserList = append(UserList, user)
-		lastUser = user
-		lastUserID = userID
+	var results []dao.User                             // 记录从数据库中的查询结果
+	hashMap := make(map[uint64]dao.User, len(UserIDs)) // 记录重复结果
+	err = global.GVAR_DB.Model(&dao.User{}).Where("user_id in ?", UserIDs).Find(&results).Error
+	if err != nil {
+		return []dao.User{}, err
+	}
+	for _, user := range results {
+		hashMap[user.UserID] = user
+	}
+	for _, userID := range UserIDs {
+		UserList = append(UserList, hashMap[userID])
 	}
 	return UserList, nil
 }
