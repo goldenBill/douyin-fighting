@@ -23,6 +23,10 @@ func InitRouter() {
 	apiRouter.GET("/favorite/list/", controller.FavoriteList)
 	apiRouter.GET("/comment/list/", controller.CommentList)
 
+	// extra apis - II
+	apiRouter.GET("/relation/follow/list/", controller.FollowList)
+	apiRouter.GET("/relation/follower/list/", controller.FollowerList)
+
 	// 需要 token 验证的路由
 	authed := apiRouter.Group("/")
 	authed.Use(middleware.JWT())
@@ -36,8 +40,6 @@ func InitRouter() {
 
 		// extra apis - II
 		authed.POST("/relation/action/", controller.RelationAction)
-		authed.GET("/relation/follow/list/", controller.FollowList)
-		authed.GET("/relation/follower/list/", controller.FollowerList)
 	}
 
 	authed2 := apiRouter.Group("/")

@@ -42,7 +42,7 @@ func DeleteComment(userID uint64, videoID uint64, commentID uint64) error {
 // GetCommentListAndUserList 获取评论列表和对应的用户列表
 func GetCommentListAndUserList(videoID uint64) ([]dao.Comment, []dao.User) {
 	commentList := make([]dao.Comment, 0, 20)
-	userIdList := make([]uint64, 0, 20)
+	userIDList := make([]uint64, 0, 20)
 	rows, _ := global.GVAR_DB.Model(dao.Comment{}).Where("video_id = ?", videoID).Rows()
 
 	for rows.Next() {
@@ -51,10 +51,10 @@ func GetCommentListAndUserList(videoID uint64) ([]dao.Comment, []dao.User) {
 		if err != nil {
 			continue
 		}
-		userIdList = append(userIdList, comment.UserID)
+		userIDList = append(userIDList, comment.UserID)
 		commentList = append(commentList, comment)
 	}
-	userList, err := GetUserListByUserIDs(userIdList)
+	userList, err := GetUserListByUserIDs(userIDList)
 	if err != nil {
 		return []dao.Comment{}, []dao.User{}
 	}

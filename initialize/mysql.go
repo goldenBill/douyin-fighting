@@ -54,6 +54,7 @@ func InitMySQL() {
 		global.GVAR_DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&dao.Video{})
 		global.GVAR_DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&dao.Favorite{})
 		global.GVAR_DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&dao.Comment{})
+		global.GVAR_DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&dao.Follow{})
 	}
 
 }
