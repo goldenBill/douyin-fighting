@@ -7,11 +7,11 @@ import (
 	"github.com/goldenBill/douyin-fighting/util"
 )
 
-// Register : 用户注册
+// Register 用户注册
 func Register(username string, password string) (user *dao.User, err error) {
 	//判断用户名是否存在
-	rowsAffected := global.GVAR_DB.Debug().Where("name = ?", username).Limit(1).Find(&user).RowsAffected
-	if rowsAffected != 0 {
+	result := global.GVAR_DB.Where("name = ?", username).Limit(1).Find(&user)
+	if result.RowsAffected != 0 {
 		err = errors.New("user already exists")
 		return
 	}
@@ -22,15 +22,15 @@ func Register(username string, password string) (user *dao.User, err error) {
 	//生成增长的 userID
 	user.UserID, _ = global.GVAR_ID_GENERATOR.NextID()
 	//存储到数据库
-	err = global.GVAR_DB.Debug().Create(user).Error
+	err = global.GVAR_DB.Create(user).Error
 	return
 }
 
-// Login : 用户登录
+// Login 用户登录
 func Login(username string, password string) (user *dao.User, err error) {
 	//检查用户名是否存在
-	rowsAffected := global.GVAR_DB.Debug().Where("name = ?", username).Limit(1).Find(&user).RowsAffected
-	if rowsAffected == 0 {
+	result := global.GVAR_DB.Where("name = ?", username).Limit(1).Find(&user)
+	if result.RowsAffected == 0 {
 		err = errors.New("username does not exist")
 		return
 	}
@@ -43,11 +43,11 @@ func Login(username string, password string) (user *dao.User, err error) {
 	return
 }
 
-// UserInfoByUserID : 通过 UserID 获取用户信息
+// UserInfoByUserID 通过 UserID 获取用户信息
 func UserInfoByUserID(userID uint64) (user *dao.User, err error) {
 	//检查 userID 是否存在；若存在，获取用户信息
-	rowsAffected := global.GVAR_DB.Debug().Where("user_id = ?", userID).Limit(1).Find(&user).RowsAffected
-	if rowsAffected == 0 {
+	result := global.GVAR_DB.Where("user_id = ?", userID).Limit(1).Find(&user)
+	if result.RowsAffected == 0 {
 		err = errors.New("username does not exist")
 		return
 	}
@@ -55,15 +55,26 @@ func UserInfoByUserID(userID uint64) (user *dao.User, err error) {
 	return
 }
 
-// 判断userID是否有效
+// IsUserIDExist 判断 userID 是否有效
 func IsUserIDExist(userID uint64) bool {
 	var count int64
-	global.GVAR_DB.Debug().Model(&dao.User{}).Where("user_id = ?", userID).Count(&count)
+	global.GVAR_DB.Model(&dao.User{}).Where("user_id = ?", userID).Count(&count)
 	return count != 0
 }
 
 // GetUserListByUserIDs 根据UserIDs获取对应的用户列表
-func GetUserListByUserIDs(UserIDs int64) (UserList []dao.User, err error) {
-	err = global.GVAR_DB.Debug().Where("user_id in (?)", UserIDs).Find(&UserList).Error
-	return UserList, err
+func GetUserListByUserIDs(UserIDs []uint64) (userList []dao.User, err error) {
+	var uniqueUserList []dao.User
+	result := global.GVAR_DB.Where("user_id in ?", UserIDs).Find(&uniqueUserList)
+	if result.Error != nil {
+		err = errors.New("query GetUserListByUserIDs error")
+	}
+	mapUserIDToUser := make(map[uint64]*dao.User)
+	for _, user := range uniqueUserList {
+		mapUserIDToUser[user.UserID] = &user
+	}
+	for _, userID := range UserIDs {
+		userList = append(userList, *mapUserIDToUser[userID])
+	}
+	return
 }

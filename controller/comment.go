@@ -1,9 +1,9 @@
 package controller
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/goldenBill/douyin-fighting/service"
+	"github.com/goldenBill/douyin-fighting/util"
 	"net/http"
 )
 
@@ -17,11 +17,16 @@ type CommentActionRequest struct {
 	CommentID   uint64 `form:"comment_id" json:"comment_id"`
 }
 
+type CommentActionResponse struct {
+	Response
+	Comment Comment `json:"comment,omitempty"`
+}
+
 // CommentListRequest 评论列表的请求
 type CommentListRequest struct {
-	UserID  int64  `form:"user_id" json:"user_id"`
+	UserID  uint64 `form:"user_id" json:"user_id"`
 	Token   string `form:"token" json:"token"`
-	VideoID int64  `form:"video_id" json:"video_id"`
+	VideoID uint64 `form:"video_id" json:"video_id"`
 }
 
 // CommentListResponse 评论列表的响应
@@ -35,16 +40,15 @@ func CommentAction(c *gin.Context) {
 	// 参数绑定
 	var r CommentActionRequest
 	err := c.ShouldBind(&r)
-	fmt.Printf("%#v\n", r)
 	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "bind error"})
+		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "bind error"})
 		return
 	}
 
 	// 判断 action_type 是否正确
 	if r.ActionType != 1 && r.ActionType != 2 {
 		// action_type 不合法
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "action type error"})
+		c.JSON(http.StatusBadRequest, Response{StatusCode: 1, StatusMsg: "action type error"})
 		return
 	}
 	// 获取 userID
@@ -54,12 +58,36 @@ func CommentAction(c *gin.Context) {
 
 	// 评论操作
 	if r.ActionType == 1 {
-		service.AddComment(r.UserID, r.VideoID, r.CommentText)
-	} else {
-		service.DeleteComment(r.UserID, r.VideoID, r.CommentID)
-	}
+		commentDao, err := service.AddComment(r.UserID, r.VideoID, r.CommentText)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
+			return
+		}
+		userDao, _ := service.UserInfoByUserID(commentDao.UserID)
 
-	c.JSON(http.StatusOK, Response{StatusCode: 0})
+		c.JSON(http.StatusOK, CommentActionResponse{
+			Response: Response{StatusCode: 0},
+			Comment: Comment{
+				ID: commentDao.CommentID,
+				User: User{
+					ID:            userDao.UserID,
+					Name:          userDao.Name,
+					FollowCount:   userDao.FollowCount,
+					FollowerCount: userDao.FollowerCount,
+					IsFollow:      service.GetIsFollowStatus(r.UserID, userDao.UserID),
+				},
+				Content:    commentDao.Content,
+				CreateDate: commentDao.CreatedAt.Format("01-02"),
+			},
+		})
+	} else {
+		err = service.DeleteComment(r.UserID, r.VideoID, r.CommentID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
+			return
+		}
+		c.JSON(http.StatusOK, Response{StatusCode: 0})
+	}
 }
 
 // CommentList all videos have same demo comment list
@@ -73,13 +101,54 @@ func CommentList(c *gin.Context) {
 	}
 
 	commentDaoList, userDaoList := service.GetCommentListAndUserList(r.VideoID)
-	// userDaoList := service.GetCommentUserList(commentDaoList)
+
+	var (
+		isFollowList []bool
+		isLogged     = false // 用户是否传入了合法有效的token（是否登录）
+		isFollow     bool
+	)
+
+	var userID uint64
+	// 判断传入的token是否合法，用户是否存在
+	if token := c.Query("token"); token != "" {
+		claims, err := util.ParseToken(token)
+		if err == nil {
+			userID = claims.UserID
+			if service.IsUserIDExist(userID) {
+				isLogged = true
+			}
+		}
+	}
+
+	if isLogged {
+		// 当用户登录时 一次性获取用户是否点赞了列表中的视频以及是否关注了视频的作者
+		authorIdList := make([]uint64, len(commentDaoList))
+		for i, user_ := range userDaoList {
+			authorIdList[i] = user_.UserID
+		}
+
+		isFollowList, err = service.GetIsFollowStatusList(userID, authorIdList)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
+			return
+		}
+	}
 
 	commentList := make([]Comment, 0, len(commentDaoList))
 	for i := 0; i < len(commentDaoList); i++ {
+		// 未登录时默认为未关注未点赞
+		if isLogged {
+			// 当用户登录时，判断是否关注当前作者
+			isFollow = isFollowList[i]
+		} else {
+			isFollow = false
+		}
 		user := User{
-			ID:   userDaoList[i].ID,
-			Name: userDaoList[i].Name,
+			ID:            userDaoList[i].ID,
+			Name:          userDaoList[i].Name,
+			FollowCount:   userDaoList[i].FollowCount,
+			FollowerCount: userDaoList[i].FollowerCount,
+			IsFollow:      isFollow,
 		}
 		comment := Comment{
 			ID:         commentDaoList[i].ID,
@@ -89,7 +158,6 @@ func CommentList(c *gin.Context) {
 		}
 		commentList = append(commentList, comment)
 	}
-
 	c.JSON(http.StatusOK, CommentListResponse{
 		Response:    Response{StatusCode: 0},
 		CommentList: commentList,

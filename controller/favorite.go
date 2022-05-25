@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/goldenBill/douyin-fighting/service"
+	"github.com/goldenBill/douyin-fighting/util"
 	"net/http"
 	"strconv"
 )
@@ -28,21 +29,19 @@ func FavoriteAction(c *gin.Context) {
 	err := c.ShouldBind(&r)
 
 	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "bind error"})
+		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "bind error"})
 		return
 	}
 
 	// 判断 action_type 是否正确
 	if r.ActionType != 1 && r.ActionType != 2 {
 		// action_type 不合法
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "action type error"})
+		c.JSON(http.StatusBadRequest, Response{StatusCode: 1, StatusMsg: "action type error"})
 		return
 	}
 
 	// 获取 userID
 	r.UserID = c.GetUint64("UserID")
-
-	// 判断 video_id 是否正确
 
 	// 点赞操作
 	if r.ActionType == 1 {
@@ -51,7 +50,7 @@ func FavoriteAction(c *gin.Context) {
 		err = service.CancelFavorite(r.UserID, r.VideoID)
 	}
 	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "server error"})
+		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "server error"})
 		return
 	}
 
@@ -64,45 +63,56 @@ func FavoriteList(c *gin.Context) {
 	var r FavoriteListRequest
 	err := c.ShouldBind(&r)
 	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "bind error"})
+		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "bind error"})
 	}
 
 	// 获取 userID
 	r.UserID, _ = strconv.ParseUint(c.Query("user_id"), 10, 64)
+	// 判断是否登录
+	var isLogin bool
+	var userID uint64
+	// 判断传入的token是否合法，用户是否存在
+	if token := c.Query("token"); token != "" {
+		claims, err := util.ParseToken(token)
+		if err == nil {
+			userID = claims.UserID
+			if service.IsUserIDExist(userID) {
+				isLogin = true
+			}
+		}
+	}
 
+	// 获取用户的点赞列表
 	videoDaoList, err := service.GetFavoriteListByUserID(r.UserID)
 	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "get favorite list failed"})
+		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "get favorite list failed"})
 		return
 	}
 
 	var videoList []Video
 	for _, videoDao := range videoDaoList {
-		var followCount = service.GetFollowCount(videoDao.AuthorID)
-		var followerCount = service.GetFollowerCount(videoDao.AuthorID)
 		userDao, err := service.UserInfoByUserID(videoDao.AuthorID)
 		if err != nil {
-			c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "User doesn't exist"})
-			return
+			continue
 		}
-		var name = userDao.Name
-		var isFollow = false
 		var author = User{
 			ID:            videoDao.AuthorID,
-			Name:          name,
-			FollowCount:   followCount,
-			FollowerCount: followerCount,
-			IsFollow:      isFollow,
+			Name:          userDao.Name,
+			FollowCount:   userDao.FollowCount,
+			FollowerCount: userDao.FollowerCount,
 		}
-		var favoriteCount = service.GetFavoriteCount(videoDao.ID)
-		var isFavorite = service.GetFavoriteStatus(r.UserID, videoDao.ID)
+		var isFavorite bool // 是否对视频点赞
+		if isLogin {
+			// 登录时，获取是否点赞，否则总是为false
+			isFavorite = service.GetFavoriteStatus(userID, videoDao.VideoID)
+		}
 		video := Video{
 			ID:            videoDao.ID,
 			Author:        author,
 			PlayUrl:       "http://" + c.Request.Host + "/static/video/" + videoDao.PlayName,
 			CoverUrl:      "http://" + c.Request.Host + "/static/cover/" + videoDao.CoverName,
-			FavoriteCount: favoriteCount,
-			CommentCount:  0,
+			FavoriteCount: videoDao.FavoriteCount,
+			CommentCount:  videoDao.CommentCount,
 			IsFavorite:    isFavorite,
 		}
 		videoList = append(videoList, video)
