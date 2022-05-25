@@ -1,7 +1,6 @@
 package service
 
 import (
-	"fmt"
 	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
 )
@@ -11,7 +10,7 @@ func FavoriteAction(userID, videoID uint64) error {
 	f := dao.Favorite{}
 
 	// 得到结果
-	result := global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).First(&f)
+	result := global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).Limit(1).Find(&f)
 
 	if result.RowsAffected != 0 {
 		// 数据库中的条目存在
@@ -46,7 +45,7 @@ func FavoriteAction(userID, videoID uint64) error {
 func CancelFavorite(userID, videoID uint64) error {
 	var f dao.Favorite
 	// 得到结果
-	result := global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).First(&f)
+	result := global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).Limit(1).Find(&f)
 
 	if result.RowsAffected != 0 {
 		// 数据库中的条目存在
@@ -78,7 +77,6 @@ func GetFavoriteListByUserID(userID uint64) ([]dao.Video, error) {
 
 	err := GetVideoListByIDs(&videoDaoList, videoIDList)
 	if err != nil {
-		fmt.Printf("132456798%#v\n", err)
 		return []dao.Video{}, err
 	}
 	return videoDaoList, nil
@@ -88,6 +86,32 @@ func GetFavoriteListByUserID(userID uint64) ([]dao.Video, error) {
 func GetFavoriteStatus(userID, videoID uint64) bool {
 	var f dao.Favorite
 	// 得到结果
-	global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).First(&f)
+	global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).Limit(1).Find(&f)
 	return f.IsFavorite
+}
+
+// GetFavoriteStatusList 根据userIDList和，videoIDList 返回点赞状态（列表）
+func GetFavoriteStatusList(userIDList, videoIDList []uint64) []bool {
+	type pair struct {
+		// 记录(用户ID, 视频ID)二元组的结构体
+		userID  uint64
+		videoID uint64
+	}
+	isFavoriteList := make([]bool, 0, len(userIDList)) // 返回结果
+	hashMap := make(map[pair]bool, len(userIDList))    // 记录重复结果
+	for i := 0; i < len(userIDList); i++ {
+		userID, videoID := userIDList[i], videoIDList[i]
+		isFavorite, ok := hashMap[pair{userID: userID, videoID: videoID}]
+		if !ok {
+			// 在map中没有，则查询数据库
+			var f dao.Favorite
+			global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).Limit(1).Find(&f)
+			isFavoriteList = append(isFavoriteList, f.IsFavorite)
+			hashMap[pair{userID: userID, videoID: videoID}] = f.IsFavorite
+		} else {
+			// 直接读取 map 数据
+			isFavoriteList = append(isFavoriteList, isFavorite)
+		}
+	}
+	return isFavoriteList
 }
