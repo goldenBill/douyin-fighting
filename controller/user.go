@@ -82,13 +82,20 @@ func Login(c *gin.Context) {
 // UserInfo 获取用户信息
 func UserInfo(c *gin.Context) {
 	//获取指定 userID 的信息
-	userID, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
+	userID, err := strconv.ParseUint(c.Query("user_id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, Response{StatusCode: 1, StatusMsg: "request is invalid"})
+		return
+	}
 	userDao, err := service.UserInfoByUserID(userID)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
+	// 获取viewer ID
+	viewerID := c.GetUint64("user_id")
 	//获取 user repsonse 报文所需信息
+	isFollow := service.GetIsFollowStatus(viewerID, userID)
 	c.JSON(http.StatusOK, UserResponse{
 		Response: Response{StatusCode: 0, StatusMsg: "OK"},
 		User: User{
@@ -96,7 +103,7 @@ func UserInfo(c *gin.Context) {
 			Name:          userDao.Name,
 			FollowCount:   0,
 			FollowerCount: 0,
-			IsFollow:      false,
+			IsFollow:      isFollow,
 		},
 	})
 }

@@ -25,15 +25,15 @@ func RelationAction(c *gin.Context) {
 		return
 	}
 	// 获取 userID
-	userID := c.GetUint64("UserID")
+	viewID := c.GetUint64("UserID")
 	// 关注操作
 	if actionType == 1 {
-		if err := service.AddFollow(toUserID, userID); err != nil {
+		if err := service.AddFollow(viewID, toUserID); err != nil {
 			c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "server error"})
 			return
 		}
 	} else {
-		if err := service.CancelFollow(toUserID, userID); err != nil {
+		if err := service.CancelFollow(viewID, toUserID); err != nil {
 			c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "server error"})
 			return
 		}
@@ -47,15 +47,15 @@ func FollowList(c *gin.Context) {
 	followerID, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
 	// 判断是否登录
 	var (
-		isLogin bool
-		viewer  uint64
+		isLogin  bool
+		viewerID uint64
 	)
 	// 判断传入的token是否合法，用户是否存在
 	if token := c.Query("token"); token != "" {
 		claims, err := util.ParseToken(token)
 		if err == nil {
-			viewer = claims.UserID
-			if service.IsUserIDExist(viewer) {
+			viewerID = claims.UserID
+			if service.IsUserIDExist(viewerID) {
 				isLogin = true
 			}
 		}
@@ -67,22 +67,27 @@ func FollowList(c *gin.Context) {
 		return
 	}
 	// 生成 reponse 数据
+	celebrityIDList := make([]uint64, len(celebrityList))
 	var userList []User
-	for _, celebrity := range celebrityList {
-		isFollow := false
-		if isLogin {
-			// 登录时，获取是否关注，否则总是为false
-			isFollow = service.GetIsFollowStatus(celebrity.UserID, viewer)
-		}
+	for idx, celebrity := range celebrityList {
 		var user = User{
 			ID:            celebrity.UserID,
 			Name:          celebrity.Name,
 			FollowCount:   celebrity.FollowCount,
 			FollowerCount: celebrity.FollowerCount,
-			IsFollow:      isFollow,
 		}
 		userList = append(userList, user)
+		celebrityIDList[idx] = celebrity.UserID
 	}
+	// 批量处理
+	if isLogin {
+		// 登录时，获取是否关注，否则总是为false
+		isFollowList := service.GetIsFollowStatusList(viewerID, celebrityIDList)
+		for idx, isFollow := range isFollowList {
+			userList[idx].IsFollow = isFollow
+		}
+	}
+
 	// 成功并返回
 	c.JSON(http.StatusOK, UserListResponse{
 		Response: Response{StatusCode: 0, StatusMsg: "OK"},
@@ -96,15 +101,15 @@ func FollowerList(c *gin.Context) {
 	celebrityID, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
 	// 判断是否登录
 	var (
-		isLogin bool
-		viewer  uint64
+		isLogin  bool
+		viewerID uint64
 	)
 	// 判断传入的token是否合法，用户是否存在
 	if token := c.Query("token"); token != "" {
 		claims, err := util.ParseToken(token)
 		if err == nil {
-			viewer = claims.UserID
-			if service.IsUserIDExist(viewer) {
+			viewerID = claims.UserID
+			if service.IsUserIDExist(viewerID) {
 				isLogin = true
 			}
 		}
@@ -121,7 +126,7 @@ func FollowerList(c *gin.Context) {
 		isFollow := false
 		if isLogin {
 			// 登录时，获取是否关注，否则总是为false
-			isFollow = service.GetIsFollowStatus(follower.UserID, viewer)
+			isFollow = service.GetIsFollowStatus(viewerID, follower.UserID)
 		}
 		var user = User{
 			ID:            follower.UserID,
