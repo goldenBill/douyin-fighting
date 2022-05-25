@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/goldenBill/douyin-fighting/controller"
 	"github.com/goldenBill/douyin-fighting/global"
-	"io/ioutil"
 	"net/http"
 	"path"
 	"strconv"
@@ -85,8 +84,9 @@ func FileCheck() gin.HandlerFunc {
 		}
 		// 通过文件字节流判断文件真实类型
 		f, err := data.Open()
-		fSrc, err := ioutil.ReadAll(f)
-		fileType := GetFileType(fSrc)
+		buffer := make([]byte, 30)
+		_, err = f.Read(buffer)
+		fileType := GetFileType(buffer)
 		println(fileType)
 
 		if fileType == "" {
@@ -98,6 +98,7 @@ func FileCheck() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+
 		// 保存文件类型
 		c.Set("FileType", fileType)
 		// 执行函数
