@@ -63,18 +63,59 @@ func IsUserIDExist(userID uint64) bool {
 }
 
 // GetUserListByUserIDs 根据UserIDs获取对应的用户列表
-func GetUserListByUserIDs(UserIDs []uint64) (userList []dao.User, err error) {
+func GetUserListByUserIDs(UserIDs []uint64, userList []dao.User) (err error) {
 	var uniqueUserList []dao.User
 	result := global.GVAR_DB.Where("user_id in ?", UserIDs).Find(&uniqueUserList)
 	if result.Error != nil {
 		err = errors.New("query GetUserListByUserIDs error")
 	}
-	mapUserIDToUser := make(map[uint64]*dao.User)
-	for _, user := range uniqueUserList {
-		mapUserIDToUser[user.UserID] = &user
+	mapUserIDToUser := make(map[uint64]dao.User)
+	for idx, user := range uniqueUserList {
+		mapUserIDToUser[user.UserID] = uniqueUserList[idx]
 	}
-	for _, userID := range UserIDs {
+
+	for idx, userID := range UserIDs {
+		userList[idx] = mapUserIDToUser[userID]
+	}
+	return
+}
+
+func SetUserListByUserIDs(userList []dao.User) error {
+	userListLen := len(userList)
+	userIDList := make([]uint64, 0, userListLen)
+	for _, each := range userList {
+		userIDList = append(userIDList, each.UserID)
+	}
+	var uniqueUserList []dao.User
+	result := global.GVAR_DB.Where("user_id in ?", userIDList).Find(&uniqueUserList)
+	if result.Error != nil {
+		return errors.New("query GetUserListByUserIDs error")
+	}
+	mapUserIDToUser := make(map[uint64]*dao.User, len(uniqueUserList))
+	for idx, user := range uniqueUserList {
+		mapUserIDToUser[user.UserID] = &uniqueUserList[idx]
+	}
+	userList = make([]dao.User, 0, userListLen)
+	for _, userID := range userIDList {
 		userList = append(userList, *mapUserIDToUser[userID])
+	}
+	return nil
+}
+
+// GetUserListByUserIDs 根据UserIDs获取对应的用户列表
+func aGetUserListByUserIDs(UserIDs []uint64) (userList []dao.User, err error) {
+	var uniqueUserList []dao.User
+	result := global.GVAR_DB.Find(&uniqueUserList)
+	if result.Error != nil {
+		err = errors.New("query GetUserListByUserIDs error")
+	}
+	mapUserIDToUser := make(map[uint64]*dao.User)
+	for idx, user := range uniqueUserList {
+		mapUserIDToUser[user.UserID] = &uniqueUserList[idx]
+	}
+	userList = make([]dao.User, len(UserIDs))
+	for idx, userID := range UserIDs {
+		userList[idx] = *mapUserIDToUser[userID]
 	}
 	return
 }

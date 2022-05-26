@@ -29,6 +29,8 @@ func AddFollow(followerID, celebrityID uint64) error {
 			if err := tx.Create(&follow).Error; err != nil {
 				return err
 			}
+		} else {
+			return nil
 		}
 		// 更新博主粉丝数
 		if err := tx.Model(&dao.User{}).Where("user_id = ?", celebrityID).
@@ -52,12 +54,13 @@ func CancelFollow(followerID, celebrityID uint64) error {
 		// 得到结果
 		result := tx.Model(&dao.Follow{}).Where("celebrity_id = ? and follower_id = ?", celebrityID, followerID).Limit(1).Find(&follow)
 		// 数据库中的条目存在 且 有关注
-		if result.RowsAffected != 0 && follow.IsFollow {
-			// 更新关注状态
-			follow.IsFollow = false
-			if err := tx.Save(&follow).Error; err != nil {
-				return err
-			}
+		if result.RowsAffected == 0 || !follow.IsFollow {
+			return nil
+		}
+		// 更新关注状态
+		follow.IsFollow = false
+		if err := tx.Save(&follow).Error; err != nil {
+			return err
 		}
 		// 更新博主粉丝数
 		if err := tx.Model(&dao.User{}).Where("user_id = ?", celebrityID).
@@ -82,7 +85,8 @@ func GetFollowListByUserID(userID uint64) ([]dao.User, error) {
 	for _, each := range followList {
 		celebrityIDList = append(celebrityIDList, each.CelebrityID)
 	}
-	celebrityList, err := GetUserListByUserIDs(celebrityIDList)
+	var celebrityList []dao.User
+	err := GetUserListByUserIDs(celebrityIDList, celebrityList)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +101,8 @@ func GetFollowerListByUserID(userID uint64) ([]dao.User, error) {
 	for _, each := range followList {
 		followerIDList = append(followerIDList, each.FollowerID)
 	}
-	followerList, err := GetUserListByUserIDs(followerIDList)
+	var followerList []dao.User
+	err := GetUserListByUserIDs(followerIDList, followerList)
 	if err != nil {
 		return nil, err
 	}
@@ -125,8 +130,8 @@ func GetIsFollowStatusList(followerID uint64, celebrityIDList []uint64) ([]bool,
 		mapCelebrityIDToIsFollow[follow.CelebrityID] = follow.IsFollow
 	}
 	isFollowStatusList := make([]bool, len(celebrityIDList))
-	for _, celebrityID := range celebrityIDList {
-		isFollowStatusList = append(isFollowStatusList, mapCelebrityIDToIsFollow[celebrityID])
+	for idx, celebrityID := range celebrityIDList {
+		isFollowStatusList[idx] = mapCelebrityIDToIsFollow[celebrityID]
 	}
 	return isFollowStatusList, nil
 }

@@ -33,13 +33,15 @@ func Feed(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, Response{StatusCode: 1, StatusMsg: "parameter latest_time is wrong"})
 		return
 	}
-	var videos []dao.Video
-	result := service.GetFeedVideos(&videos, LatestTime, global.GVAR_FEED_NUM)
-	if result.Error != nil {
+	var videoList []dao.Video
+	var authorList []dao.User
+	numVideos, err := service.GetFeedVideosAndAuthors(&videoList, &authorList, LatestTime, global.GVAR_FEED_NUM)
+
+	if err != nil {
 		//访问数据库出错
-		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: result.Error.Error()})
+		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
-	} else if result.RowsAffected == 0 {
+	} else if numVideos == 0 {
 		//没有满足条件的视频
 		c.JSON(http.StatusOK, FeedResponse{
 			Response:  Response{StatusCode: 0},
@@ -50,11 +52,15 @@ func Feed(c *gin.Context) {
 	}
 
 	var (
-		videoList      []Video
-		author_        *dao.User
+		videoJsonList  []Video
+		videoJson      Video
+		video          dao.Video
+		author         dao.User
+		authorJson     User
 		isFavoriteList []bool
 		isFollowList   []bool
 		isLogged       = false // 用户是否传入了合法有效的token（是否登录）
+		idx            int
 	)
 
 	var userID uint64
@@ -71,11 +77,11 @@ func Feed(c *gin.Context) {
 
 	if isLogged {
 		// 当用户登录时 一次性获取用户是否点赞了列表中的视频以及是否关注了视频的作者
-		videoIdList := make([]uint64, len(videos))
-		authorIdList := make([]uint64, len(videos))
-		for i, video_ := range videos {
-			videoIdList[i] = video_.VideoID
-			authorIdList[i] = video_.AuthorID
+		videoIdList := make([]uint64, numVideos)
+		authorIdList := make([]uint64, numVideos)
+		for idx, video = range videoList {
+			videoIdList[idx] = video.VideoID
+			authorIdList[idx] = video.AuthorID
 		}
 
 		isFavoriteList, err = service.GetFavoriteStatusList(userID, videoIdList)
@@ -94,61 +100,55 @@ func Feed(c *gin.Context) {
 	var isFavorite bool
 	var isFollow bool
 
-	for i, video_ := range videos {
+	for idx, video = range videoList {
 		// 未登录时默认为未关注未点赞
 		if isLogged {
 			// 当用户登录时，判断是否关注当前作者
-			isFollow = isFollowList[i]
-			isFavorite = isFavoriteList[i]
+			isFollow = isFollowList[idx]
+			isFavorite = isFavoriteList[idx]
 		} else {
 			isFavorite = false
 			isFollow = false
 		}
 
 		// 二次确认返回的视频与封面是服务器存在的
-		VideoLocation := filepath.Join(global.GVAR_VIDEO_ADDR, video_.PlayName)
+		VideoLocation := filepath.Join(global.GVAR_VIDEO_ADDR, video.PlayName)
 		if _, err = os.Stat(VideoLocation); err != nil {
 			continue
 		}
-		CoverLocation := filepath.Join(global.GVAR_COVER_ADDR, video_.CoverName)
+		CoverLocation := filepath.Join(global.GVAR_COVER_ADDR, video.CoverName)
 		if _, err = os.Stat(CoverLocation); err != nil {
 			continue
 		}
-		author_, err = service.UserInfoByUserID(video_.AuthorID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
-			return
-		}
 
-		author := User{
-			ID:            author_.UserID,
-			Name:          author_.Name,
-			FollowCount:   author_.FollowerCount,
-			FollowerCount: author_.FollowerCount,
-			IsFollow:      isFollow,
-		}
+		author = authorList[idx]
+		authorJson.ID = author.UserID
+		authorJson.Name = author.Name
+		authorJson.FollowCount = author.FollowCount
+		authorJson.FollowerCount = author.FollowerCount
+		authorJson.IsFollow = isFollow
 
-		video := Video{
-			ID:            video_.VideoID,
-			Author:        author,
-			PlayUrl:       "http://" + c.Request.Host + "/static/video/" + video_.PlayName,
-			CoverUrl:      "http://" + c.Request.Host + "/static/cover/" + video_.CoverName,
-			FavoriteCount: video_.FavoriteCount,
-			CommentCount:  video_.CommentCount,
-			Title:         video_.Title,
-			IsFavorite:    isFavorite,
-		}
-		videoList = append(videoList, video)
+		videoJson.ID = video.VideoID
+		videoJson.Author = authorJson
+		videoJson.PlayUrl = "http://" + c.Request.Host + "/static/video/" + video.PlayName
+		videoJson.CoverUrl = "http://" + c.Request.Host + "/static/cover/" + video.CoverName
+		videoJson.FavoriteCount = video.FavoriteCount
+		videoJson.CommentCount = video.CommentCount
+		videoJson.Title = video.Title
+		videoJson.IsFavorite = isFavorite
+
+		videoJsonList = append(videoJsonList, videoJson)
 	}
 
 	//本次返回的视频中发布最早的时间
-	nextTime := videos[len(videos)-1].CreatedAt.UnixMilli()
+	println(len(videoList), numVideos-1, "\n\n\n\n\n")
+	nextTime := videoList[numVideos-1].CreatedAt.UnixMilli()
 	//println(videoList)
 	//println("\n\n\n\n\n\n\n\n")
 
 	c.JSON(http.StatusOK, FeedResponse{
 		Response:  Response{StatusCode: 0},
-		VideoList: videoList,
+		VideoList: videoJsonList,
 		NextTime:  nextTime,
 	})
 }
