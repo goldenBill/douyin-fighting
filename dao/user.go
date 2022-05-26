@@ -5,8 +5,7 @@ import (
 )
 
 type User struct {
-	ID             uint64    `gorm:"column:id;primary_key;AUTO_INCREMENT"`
-	UserID         uint64    `gorm:"column:user_id;NOT NULL"`
+	UserID         uint64    `gorm:"column:user_id;primary_key;NOT NULL"`
 	Name           string    `gorm:"column:name;NOT NULL"`
 	Password       string    `gorm:"column:password;NOT NULL"`
 	FollowCount    int64     `gorm:"column:follow_count;NOT NULL"`

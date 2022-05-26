@@ -72,7 +72,6 @@ func FileCheck() gin.HandlerFunc {
 			return
 		}
 		fileSuffix := path.Ext(data.Filename)
-		println(fileSuffix)
 		if _, ok := global.GVAR_WHITELIST_VIDEO[fileSuffix]; ok == false {
 			// 文件后缀名不在白名单内
 			c.JSON(http.StatusForbidden, controller.Response{
@@ -87,7 +86,6 @@ func FileCheck() gin.HandlerFunc {
 		buffer := make([]byte, 30)
 		_, err = f.Read(buffer)
 		fileType := GetFileType(buffer)
-		println(fileType)
 
 		if fileType == "" {
 			// 文件真实类型不在白名单内

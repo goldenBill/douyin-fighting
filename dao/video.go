@@ -3,8 +3,7 @@ package dao
 import "time"
 
 type Video struct {
-	ID            uint64    `gorm:"column:id;primary_key;AUTO_INCREMENT"`
-	VideoID       uint64    `gorm:"column:video_id;NOT NULL"`
+	VideoID       uint64    `gorm:"column:video_id;primary_key;NOT NULL"`
 	Title         string    `gorm:"column:title;NOT NULL"`
 	PlayName      string    `gorm:"column:play_name;NOT NULL"`
 	CoverName     string    `gorm:"column:cover_name;NOT NULL"`

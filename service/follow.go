@@ -1,7 +1,6 @@
 package service
 
 import (
-	"errors"
 	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
 	"gorm.io/gorm"
@@ -15,7 +14,9 @@ func AddFollow(followerID, celebrityID uint64) error {
 		result := tx.Model(&dao.Follow{}).Where("celebrity_id = ? and follower_id = ?", celebrityID, followerID).
 			Limit(1).Find(&follow)
 		// 数据库中的条目存在
-		if result.RowsAffected != 0 {
+		if result.Error != nil {
+			return result.Error
+		} else if result.RowsAffected != 0 {
 			if follow.IsFollow {
 				return nil
 			}
@@ -56,7 +57,9 @@ func CancelFollow(followerID, celebrityID uint64) error {
 		result := tx.Model(&dao.Follow{}).Where("celebrity_id = ? and follower_id = ?", celebrityID, followerID).
 			Limit(1).Find(&follow)
 		// 数据库中的条目存在 且 有关注
-		if result.RowsAffected == 0 || !follow.IsFollow {
+		if result.Error != nil {
+			return result.Error
+		} else if result.RowsAffected == 0 || !follow.IsFollow {
 			return nil
 		}
 		// 更新关注状态
@@ -82,7 +85,11 @@ func CancelFollow(followerID, celebrityID uint64) error {
 // GetFollowListByUserID 获取用户关注列表
 func GetFollowListByUserID(userID uint64) ([]dao.User, error) {
 	var followList []dao.Follow
-	global.GVAR_DB.Model(&dao.Follow{}).Where("follower_id = ? and is_follow = ?", userID, true).Find(&followList)
+	result := global.GVAR_DB.Model(&dao.Follow{}).Where("follower_id = ? and is_follow = ?", userID, true).
+		Find(&followList)
+	if result.Error != nil {
+		return nil, result.Error
+	}
 	celebrityIDList := make([]uint64, 0, len(followList))
 	for _, each := range followList {
 		celebrityIDList = append(celebrityIDList, each.CelebrityID)
@@ -97,7 +104,11 @@ func GetFollowListByUserID(userID uint64) ([]dao.User, error) {
 // GetFollowerListByUserID 获取用户粉丝列表
 func GetFollowerListByUserID(userID uint64) ([]dao.User, error) {
 	var followList []dao.Follow
-	global.GVAR_DB.Model(&dao.Follow{}).Where("celebrity_id = ? and is_follow = ?", userID, true).Find(&followList)
+	result := global.GVAR_DB.Model(&dao.Follow{}).Where("celebrity_id = ? and is_follow = ?", userID, true).
+		Find(&followList)
+	if result.Error != nil {
+		return nil, result.Error
+	}
 	followerIDList := make([]uint64, 0, len(followList))
 	for _, each := range followList {
 		followerIDList = append(followerIDList, each.FollowerID)
@@ -110,11 +121,15 @@ func GetFollowerListByUserID(userID uint64) ([]dao.User, error) {
 }
 
 // GetIsFollowStatus 根据 celebrityID 和 followerID 返回关注状态
-func GetIsFollowStatus(followerID, celebrityID uint64) bool {
+func GetIsFollowStatus(followerID, celebrityID uint64) (bool, error) {
 	var follow dao.Follow
 	// 得到结果
-	global.GVAR_DB.Model(&dao.Follow{}).Where("celebrity_id = ? and follower_id = ?", celebrityID, followerID).Limit(1).Find(&follow)
-	return follow.IsFollow
+	result := global.GVAR_DB.Model(&dao.Follow{}).Where("celebrity_id = ? and follower_id = ?", celebrityID, followerID).
+		Limit(1).Find(&follow)
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return follow.IsFollow, nil
 }
 
 // GetIsFollowStatusList 根据 celebrityIDList 和 followerID 返回关注状态
@@ -123,8 +138,7 @@ func GetIsFollowStatusList(followerID uint64, celebrityIDList []uint64) ([]bool,
 	result := global.GVAR_DB.Model(&dao.Follow{}).
 		Where("celebrity_id in ? and follower_id = ?", celebrityIDList, followerID).Find(&uniqueFollows)
 	if result.Error != nil {
-		err := errors.New("query GetIsFollowStatusList error")
-		return nil, err
+		return nil, result.Error
 	}
 	//针对查询建立映射关系
 	mapCelebrityIDToIsFollow := make(map[uint64]bool, len(uniqueFollows))

@@ -1,7 +1,6 @@
 package service
 
 import (
-	"errors"
 	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
 	"gorm.io/gorm"
@@ -15,7 +14,9 @@ func FavoriteAction(userID, videoID uint64) error {
 		result := tx.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).
 			Limit(1).Find(&favorite)
 		//数据库中的条目存在
-		if result.RowsAffected != 0 {
+		if result.Error != nil {
+			return result.Error
+		} else if result.RowsAffected != 0 {
 			if favorite.IsFavorite {
 				return nil
 			}
@@ -66,7 +67,9 @@ func CancelFavorite(userID, videoID uint64) error {
 		result := tx.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).
 			Limit(1).Find(&favorite)
 		//数据库中的条目不存在
-		if result.RowsAffected == 0 || !favorite.IsFavorite {
+		if result.Error != nil {
+			return result.Error
+		} else if result.RowsAffected == 0 || !favorite.IsFavorite {
 			return nil
 		}
 		// 更新点赞状态
@@ -100,14 +103,17 @@ func CancelFavorite(userID, videoID uint64) error {
 
 // GetFavoriteListByUserID 获取用户点赞列表
 func GetFavoriteListByUserID(userID uint64) ([]dao.Video, error) {
-	favoriteList := make([]dao.Favorite, 0, 20)
-	videoDaoList := make([]dao.Video, 0, 20)
-	videoIDList := make([]uint64, 0, 20)
-	global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and is_favorite = ?", userID, true).Find(&favoriteList)
+	var favoriteList []dao.Favorite
+	result := global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and is_favorite = ?", userID, true).
+		Find(&favoriteList)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	videoIDList := make([]uint64, 0, len(favoriteList))
 	for _, each := range favoriteList {
 		videoIDList = append(videoIDList, each.VideoID)
 	}
-
+	var videoDaoList []dao.Video
 	err := GetVideoListByIDs(&videoDaoList, videoIDList)
 	if err != nil {
 		return []dao.Video{}, err
@@ -126,19 +132,23 @@ func GetFavoriteStatus(userID, videoID uint64) bool {
 
 // GetFavoriteStatusList 根据userID和，videoIDList 返回点赞状态（列表）
 func GetFavoriteStatusList(userID uint64, videoIDList []uint64) ([]bool, error) {
-	var f []dao.Favorite
-	isFavoriteList := make([]bool, len(videoIDList)) // 返回结果
-	result := global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id in (?)", userID, videoIDList).Limit(1).Find(&f)
+	var favorites []dao.Favorite
+	result := global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id in ?", userID, videoIDList).
+		Limit(1).Find(&favorites)
 	if result.Error != nil {
-		err := errors.New("query GetFavoriteStatusList error")
-		return nil, err
+		return nil, result.Error
 	}
-	mapVideoIDToFavorite := make(map[uint64]dao.Favorite)
-	for _, favorite := range f {
-		mapVideoIDToFavorite[favorite.VideoID] = favorite
+	mapVideoIDToFavorite := make(map[uint64]*dao.Favorite, len(favorites))
+	for idx, favorite := range favorites {
+		mapVideoIDToFavorite[favorite.VideoID] = &favorites[idx]
 	}
+	isFavoriteList := make([]bool, len(videoIDList)) // 返回结果
 	for i, videoID := range videoIDList {
-		isFavoriteList[i] = mapVideoIDToFavorite[videoID].IsFavorite
+		if favorite := mapVideoIDToFavorite[videoID]; favorite != nil {
+			isFavoriteList[i] = favorite.IsFavorite
+		} else {
+			isFavoriteList[i] = false
+		}
 	}
 	return isFavoriteList, nil
 }

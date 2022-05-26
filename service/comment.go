@@ -16,7 +16,7 @@ func AddComment(userID uint64, videoID uint64, commentText string) (dao.Comment,
 		Content:   commentText,
 	}
 
-	if err := global.GVAR_DB.Debug().Transaction(func(tx *gorm.DB) error {
+	if err := global.GVAR_DB.Transaction(func(tx *gorm.DB) error {
 		// 在事务中执行一些 db 操作（从这里开始，您应该使用 'tx' 而不是 'db'）
 		if err := tx.Create(&comment).Error; err != nil {
 			// 返回任何错误都会回滚事务
@@ -39,13 +39,13 @@ func AddComment(userID uint64, videoID uint64, commentText string) (dao.Comment,
 // DeleteComment 用户userID删除视频videoID的评论commentID
 func DeleteComment(userID uint64, videoID uint64, commentID uint64) error {
 	comment := dao.Comment{
-		ID:      commentID,
-		VideoID: videoID,
-		UserID:  userID,
+		CommentID: commentID,
+		VideoID:   videoID,
+		UserID:    userID,
 	}
-	err := global.GVAR_DB.Debug().Transaction(func(tx *gorm.DB) error {
+	err := global.GVAR_DB.Transaction(func(tx *gorm.DB) error {
 		// 在事务中执行一些 db 操作（从这里开始，您应该使用 'tx' 而不是 'db'）
-		if err := tx.Create(&comment).Error; err != nil {
+		if err := tx.Debug().Delete(&comment).Error; err != nil {
 			// 返回任何错误都会回滚事务
 			return err
 		}

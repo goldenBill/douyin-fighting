@@ -64,7 +64,11 @@ func CommentAction(c *gin.Context) {
 			return
 		}
 		userDao, _ := service.UserInfoByUserID(commentDao.UserID)
-
+		isFollow, err := service.GetIsFollowStatus(r.UserID, userDao.UserID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, CommentActionResponse{
 			Response: Response{StatusCode: 0},
 			Comment: Comment{
@@ -76,7 +80,7 @@ func CommentAction(c *gin.Context) {
 					FollowerCount:  userDao.FollowerCount,
 					TotalFavorited: userDao.TotalFavorited,
 					FavoriteCount:  userDao.FavoriteCount,
-					IsFollow:       service.GetIsFollowStatus(r.UserID, userDao.UserID),
+					IsFollow:       isFollow,
 				},
 				Content:    commentDao.Content,
 				CreateDate: commentDao.CreatedAt.Format("01-02"),
@@ -146,7 +150,7 @@ func CommentList(c *gin.Context) {
 			isFollow = false
 		}
 		user := User{
-			ID:             userDaoList[i].ID,
+			ID:             userDaoList[i].UserID,
 			Name:           userDaoList[i].Name,
 			FollowCount:    userDaoList[i].FollowCount,
 			FollowerCount:  userDaoList[i].FollowerCount,
@@ -155,7 +159,7 @@ func CommentList(c *gin.Context) {
 			IsFollow:       isFollow,
 		}
 		comment := Comment{
-			ID:         commentDaoList[i].ID,
+			ID:         commentDaoList[i].CommentID,
 			User:       user,
 			Content:    commentDaoList[i].Content,
 			CreateDate: commentDaoList[i].CreatedAt.Format("01-02"),

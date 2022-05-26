@@ -29,7 +29,7 @@ func Register(c *gin.Context) {
 	// 验证用户名合法性
 	if utf8.RuneCountInString(username) > global.MAX_USERNAME_LENGTH ||
 		utf8.RuneCountInString(username) <= 0 {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "invalid username"})
+		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "非法用户名"})
 		return
 	}
 	//验证密码合法性
@@ -40,15 +40,16 @@ func Register(c *gin.Context) {
 	//注册用户到数据库
 	userDao, err := service.Register(username, password)
 	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
+		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
 	//生成对应 token
 	tokenString, err := util.GenerateToken(userDao)
 	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
+		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
+	//返回成功并生成响应 json
 	c.JSON(http.StatusOK, UserLoginResponse{
 		Response: Response{StatusCode: 0, StatusMsg: "OK"},
 		UserID:   userDao.UserID,
@@ -63,15 +64,16 @@ func Login(c *gin.Context) {
 	//从数据库查询用户信息
 	userDao, err := service.Login(username, password)
 	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
+		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "用户名或密码错误"})
 		return
 	}
 	//生成对应 token
 	tokenString, err := util.GenerateToken(userDao)
 	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
+		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
+	//返回成功并生成响应 json
 	c.JSON(http.StatusOK, UserLoginResponse{
 		Response: Response{StatusCode: 0, StatusMsg: "OK"},
 		UserID:   userDao.UserID,
@@ -89,13 +91,18 @@ func UserInfo(c *gin.Context) {
 	}
 	userDao, err := service.UserInfoByUserID(userID)
 	if err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
+		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
-	// 获取viewer ID
+	//获取 viewer ID
 	viewerID := c.GetUint64("user_id")
 	//获取 user repsonse 报文所需信息
-	isFollow := service.GetIsFollowStatus(viewerID, userID)
+	isFollow, err := service.GetIsFollowStatus(viewerID, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
+		return
+	}
+	//返回成功并生成响应 json
 	c.JSON(http.StatusOK, UserResponse{
 		Response: Response{StatusCode: 0, StatusMsg: "OK"},
 		User: User{

@@ -9,7 +9,6 @@ import (
 )
 
 type UserClaims struct {
-	ID     uint64
 	UserID uint64
 	Name   string
 	jwt.RegisteredClaims
@@ -21,7 +20,6 @@ func GenerateToken(user *dao.User) (string, error) {
 	mySigningKey := []byte(global.GVAR_JWT_SigningKey)
 	//配置 userClaims ,并生成 token
 	claims := UserClaims{
-		user.ID,
 		user.UserID,
 		user.Name,
 		jwt.RegisteredClaims{
