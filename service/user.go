@@ -63,19 +63,20 @@ func IsUserIDExist(userID uint64) bool {
 }
 
 // GetUserListByUserIDs 根据UserIDs获取对应的用户列表
-func GetUserListByUserIDs(UserIDs []uint64, userList []dao.User) (err error) {
+func GetUserListByUserIDs(UserIDs []uint64, userList *[]dao.User) (err error) {
 	var uniqueUserList []dao.User
 	result := global.GVAR_DB.Where("user_id in ?", UserIDs).Find(&uniqueUserList)
 	if result.Error != nil {
 		err = errors.New("query GetUserListByUserIDs error")
 	}
 	mapUserIDToUser := make(map[uint64]dao.User)
+	*userList = make([]dao.User, len(UserIDs))
 	for idx, user := range uniqueUserList {
 		mapUserIDToUser[user.UserID] = uniqueUserList[idx]
 	}
 
 	for idx, userID := range UserIDs {
-		userList[idx] = mapUserIDToUser[userID]
+		(*userList)[idx] = mapUserIDToUser[userID]
 	}
 	return
 }

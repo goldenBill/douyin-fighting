@@ -141,7 +141,6 @@ func Feed(c *gin.Context) {
 	}
 
 	//本次返回的视频中发布最早的时间
-	println(len(videoList), numVideos-1, "\n\n\n\n\n")
 	nextTime := videoList[numVideos-1].CreatedAt.UnixMilli()
 	//println(videoList)
 	//println("\n\n\n\n\n\n\n\n")

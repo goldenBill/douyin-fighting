@@ -55,7 +55,7 @@ func GetCommentListAndUserList(videoID uint64) ([]dao.Comment, []dao.User) {
 		commentList = append(commentList, comment)
 	}
 	var userList []dao.User
-	err := GetUserListByUserIDs(userIDList, userList)
+	err := GetUserListByUserIDs(userIDList, &userList)
 	if err != nil {
 		return []dao.Comment{}, []dao.User{}
 	}

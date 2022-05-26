@@ -19,12 +19,11 @@ func GetFeedVideosAndAuthors(videos *[]dao.Video, authors *[]dao.User, LatestTim
 	} else {
 		// 成功
 		authorIDList := make([]uint64, result.RowsAffected)
-		*authors = make([]dao.User, result.RowsAffected)
 		for i, video := range *videos {
 			authorIDList[i] = video.AuthorID
 		}
 
-		err := GetUserListByUserIDs(authorIDList, *authors)
+		err := GetUserListByUserIDs(authorIDList, authors)
 		if err != nil {
 			return 0, err
 		} else {
@@ -61,11 +60,10 @@ func GetPublishedVideosAndAuthors(videos *[]dao.Video, authors *[]dao.User, user
 	} else {
 		// 成功
 		authorIDList := make([]uint64, result.RowsAffected)
-		*authors = make([]dao.User, result.RowsAffected)
 		for i, video := range *videos {
 			authorIDList[i] = video.AuthorID
 		}
-		err := GetUserListByUserIDs(authorIDList, *authors)
+		err := GetUserListByUserIDs(authorIDList, authors)
 		if err != nil {
 			return 0, err
 		} else {

@@ -86,7 +86,7 @@ func GetFollowListByUserID(userID uint64) ([]dao.User, error) {
 		celebrityIDList = append(celebrityIDList, each.CelebrityID)
 	}
 	var celebrityList []dao.User
-	err := GetUserListByUserIDs(celebrityIDList, celebrityList)
+	err := GetUserListByUserIDs(celebrityIDList, &celebrityList)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func GetFollowerListByUserID(userID uint64) ([]dao.User, error) {
 		followerIDList = append(followerIDList, each.FollowerID)
 	}
 	var followerList []dao.User
-	err := GetUserListByUserIDs(followerIDList, followerList)
+	err := GetUserListByUserIDs(followerIDList, &followerList)
 	if err != nil {
 		return nil, err
 	}
