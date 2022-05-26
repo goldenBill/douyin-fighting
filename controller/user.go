@@ -99,11 +99,13 @@ func UserInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, UserResponse{
 		Response: Response{StatusCode: 0, StatusMsg: "OK"},
 		User: User{
-			ID:            userID,
-			Name:          userDao.Name,
-			FollowCount:   userDao.FollowCount,
-			FollowerCount: userDao.FollowerCount,
-			IsFollow:      isFollow,
+			ID:             userID,
+			Name:           userDao.Name,
+			FollowCount:    userDao.FollowCount,
+			FollowerCount:  userDao.FollowerCount,
+			TotalFavorited: userDao.TotalFavorited,
+			FavoriteCount:  userDao.FavoriteCount,
+			IsFollow:       isFollow,
 		},
 	})
 }

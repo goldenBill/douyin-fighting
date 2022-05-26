@@ -98,10 +98,12 @@ func FavoriteList(c *gin.Context) {
 			continue
 		}
 		var author = User{
-			ID:            videoDao.AuthorID,
-			Name:          userDao.Name,
-			FollowCount:   userDao.FollowCount,
-			FollowerCount: userDao.FollowerCount,
+			ID:             videoDao.AuthorID,
+			Name:           userDao.Name,
+			FollowCount:    userDao.FollowCount,
+			FollowerCount:  userDao.FollowerCount,
+			TotalFavorited: userDao.TotalFavorited,
+			FavoriteCount:  userDao.FavoriteCount,
 		}
 		var isFavorite bool // 是否对视频点赞
 		video := Video{

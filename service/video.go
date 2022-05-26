@@ -7,10 +7,29 @@ import (
 	"time"
 )
 
-// GetFeedVideos 按要求拉取feed视频
-func GetFeedVideos(videos *[]dao.Video, LatestTime int64, MaxNumVideo int) *gorm.DB {
+// GetFeedVideosAndAuthors 按要求拉取feed视频和其作者
+func GetFeedVideosAndAuthors(videos *[]dao.Video, authors *[]dao.User, LatestTime int64, MaxNumVideo int) (int64, error) {
 	result := global.GVAR_DB.Where("created_at < ?", time.UnixMilli(LatestTime)).Order("created_at DESC").Limit(MaxNumVideo).Find(videos)
-	return result
+	if result.Error != nil {
+		// 访问数据库出错
+		return 0, result.Error
+	} else if result.RowsAffected == 0 {
+		// 没有满足条件的视频
+		return 0, nil
+	} else {
+		// 成功
+		authorIDList := make([]uint64, result.RowsAffected)
+		for i, video := range *videos {
+			authorIDList[i] = video.AuthorID
+		}
+
+		err := GetUserListByUserIDs(authorIDList, authors)
+		if err != nil {
+			return 0, err
+		} else {
+			return result.RowsAffected, nil
+		}
+	}
 }
 
 // PublishVideo 记录接收视频的属性并写入数据库
@@ -27,6 +46,30 @@ func PublishVideo(userID uint64, videoID uint64, videoName string, coverName str
 
 	err := global.GVAR_DB.Create(&video).Error
 	return err
+}
+
+// GetPublishedVideosAndAuthors 按要求拉取feed视频和其作者
+func GetPublishedVideosAndAuthors(videos *[]dao.Video, authors *[]dao.User, userID uint64) (int64, error) {
+	result := global.GVAR_DB.Where("author_id = ?", userID).Find(videos)
+	if result.Error != nil {
+		// 访问数据库出错
+		return 0, result.Error
+	} else if result.RowsAffected == 0 {
+		// 没有满足条件的视频
+		return 0, nil
+	} else {
+		// 成功
+		authorIDList := make([]uint64, result.RowsAffected)
+		for i, video := range *videos {
+			authorIDList[i] = video.AuthorID
+		}
+		err := GetUserListByUserIDs(authorIDList, authors)
+		if err != nil {
+			return 0, err
+		} else {
+			return result.RowsAffected, nil
+		}
+	}
 }
 
 // GetPublishedVideos 给定用户ID得到其发表过的视频

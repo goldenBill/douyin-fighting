@@ -70,11 +70,13 @@ func CommentAction(c *gin.Context) {
 			Comment: Comment{
 				ID: commentDao.CommentID,
 				User: User{
-					ID:            userDao.UserID,
-					Name:          userDao.Name,
-					FollowCount:   userDao.FollowCount,
-					FollowerCount: userDao.FollowerCount,
-					IsFollow:      service.GetIsFollowStatus(r.UserID, userDao.UserID),
+					ID:             userDao.UserID,
+					Name:           userDao.Name,
+					FollowCount:    userDao.FollowCount,
+					FollowerCount:  userDao.FollowerCount,
+					TotalFavorited: userDao.TotalFavorited,
+					FavoriteCount:  userDao.FavoriteCount,
+					IsFollow:       service.GetIsFollowStatus(r.UserID, userDao.UserID),
 				},
 				Content:    commentDao.Content,
 				CreateDate: commentDao.CreatedAt.Format("01-02"),
@@ -122,12 +124,12 @@ func CommentList(c *gin.Context) {
 
 	if isLogged {
 		// 当用户登录时 一次性获取用户是否点赞了列表中的视频以及是否关注了视频的作者
-		authorIdList := make([]uint64, len(commentDaoList))
+		authorIDList := make([]uint64, len(commentDaoList))
 		for i, user_ := range userDaoList {
-			authorIdList[i] = user_.UserID
+			authorIDList[i] = user_.UserID
 		}
 
-		isFollowList, err = service.GetIsFollowStatusList(userID, authorIdList)
+		isFollowList, err = service.GetIsFollowStatusList(userID, authorIDList)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
@@ -144,11 +146,13 @@ func CommentList(c *gin.Context) {
 			isFollow = false
 		}
 		user := User{
-			ID:            userDaoList[i].ID,
-			Name:          userDaoList[i].Name,
-			FollowCount:   userDaoList[i].FollowCount,
-			FollowerCount: userDaoList[i].FollowerCount,
-			IsFollow:      isFollow,
+			ID:             userDaoList[i].ID,
+			Name:           userDaoList[i].Name,
+			FollowCount:    userDaoList[i].FollowCount,
+			FollowerCount:  userDaoList[i].FollowerCount,
+			TotalFavorited: userDaoList[i].TotalFavorited,
+			FavoriteCount:  userDaoList[i].FavoriteCount,
+			IsFollow:       isFollow,
 		}
 		comment := Comment{
 			ID:         commentDaoList[i].ID,

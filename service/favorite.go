@@ -4,68 +4,98 @@ import (
 	"errors"
 	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
+	"gorm.io/gorm"
 )
 
 // FavoriteAction 用户userID进行点赞视频videoID的操作
 func FavoriteAction(userID, videoID uint64) error {
-	f := dao.Favorite{}
-
-	// 得到结果
-	result := global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).Limit(1).Find(&f)
-
-	if result.RowsAffected != 0 {
-		// 数据库中的条目存在
-		if f.IsFavorite {
-			return errors.New("已点赞")
-		} else {
+	return global.GVAR_DB.Transaction(func(tx *gorm.DB) error {
+		// 得到结果
+		var favorite dao.Favorite
+		result := tx.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).
+			Limit(1).Find(&favorite)
+		//数据库中的条目存在
+		if result.RowsAffected != 0 {
+			if favorite.IsFavorite {
+				return nil
+			}
 			// 更新点赞状态
-			f.IsFavorite = true
-			err := global.GVAR_DB.Save(&f).Error
-			if err != nil {
-				// 更新点赞状态出错，直接返回
+			favorite.IsFavorite = true
+			if err := tx.Save(&favorite).Error; err != nil {
 				return err
 			}
-			return FavoriteCountPlus(videoID) // 点赞数+1
 		}
-	} else {
 		// 在点赞表中新增一个条目
-		f.FavoriteID, _ = global.GVAR_ID_GENERATOR.NextID()
-		f.VideoID = videoID
-		f.UserID = userID
-		f.IsFavorite = true
-		err := global.GVAR_DB.Create(&f).Error
-		if err != nil {
+		favorite.FavoriteID, _ = global.GVAR_ID_GENERATOR.NextID()
+		favorite.VideoID = videoID
+		favorite.UserID = userID
+		favorite.IsFavorite = true
+		if err := tx.Create(&favorite).Error; err != nil {
 			// 插入出错，直接返回
 			return err
 		}
-		return FavoriteCountPlus(videoID) // 点赞数+1
-	}
-
-	return nil
+		// 更新 videos 表的 FavoriteCount
+		if err := tx.Model(&dao.Video{}).Where("video_id = ?", videoID).
+			Update("favorite_count", gorm.Expr("favorite_count + 1")).Error; err != nil {
+			return err
+		}
+		// 更新 users 表的 FavoriteCount
+		if err := tx.Model(&dao.User{}).Where("user_id = ?", userID).
+			Update("favorite_count", gorm.Expr("favorite_count + 1")).Error; err != nil {
+			return err
+		}
+		// 查询视频作者
+		var video dao.Video
+		if err := tx.Where("video_id = ?", videoID).Limit(1).Find(&video).Error; err != nil {
+			return err
+		}
+		// 更新 users 表的 TotalFavorited
+		if err := tx.Model(&dao.User{}).Where("user_id = ?", video.AuthorID).
+			Update("total_favorited", gorm.Expr("total_favorited + 1")).Error; err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 // CancelFavorite 用户userID取消点赞视频videoID
 func CancelFavorite(userID, videoID uint64) error {
-	var f dao.Favorite
-	// 得到结果
-	result := global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).Limit(1).Find(&f)
-
-	if result.RowsAffected != 0 {
-		// 数据库中的条目存在
-		if f.IsFavorite == true {
-			// 更新点赞状态，取消点赞
-			f.IsFavorite = false
-			err := global.GVAR_DB.Save(&f).Error
-			if err != nil {
-				// 更新出错，直接返回
-				return err
-			}
-			return FavoriteCountMinus(videoID) // 点赞数-1
+	return global.GVAR_DB.Transaction(func(tx *gorm.DB) error {
+		// 得到结果
+		var favorite dao.Favorite
+		result := tx.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).
+			Limit(1).Find(&favorite)
+		//数据库中的条目不存在
+		if result.RowsAffected == 0 || !favorite.IsFavorite {
+			return nil
 		}
-	}
-	// 不存在直接忽略
-
-	return nil
+		// 更新点赞状态
+		favorite.IsFavorite = false
+		if err := tx.Save(&favorite).Error; err != nil {
+			return err
+		}
+		// 更新 videos 表的 FavoriteCount
+		if err := tx.Model(&dao.Video{}).Where("video_id = ?", videoID).
+			Update("favorite_count", gorm.Expr("favorite_count - 1")).Error; err != nil {
+			return err
+		}
+		// 更新 users 表的 FavoriteCount
+		if err := tx.Model(&dao.User{}).Where("user_id = ?", userID).
+			Update("favorite_count", gorm.Expr("favorite_count - 1")).Error; err != nil {
+			return err
+		}
+		// 查询视频作者
+		var video dao.Video
+		if err := tx.Where("video_id = ?", videoID).Limit(1).Find(&video).Error; err != nil {
+			return err
+		}
+		// 更新 users 表的 TotalFavorited
+		if err := tx.Model(&dao.User{}).Where("user_id = ?", video.AuthorID).
+			Update("total_favorited", gorm.Expr("total_favorited - 1")).Error; err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 // GetFavoriteListByUserID 获取用户点赞列表
@@ -87,10 +117,11 @@ func GetFavoriteListByUserID(userID uint64) ([]dao.Video, error) {
 
 // GetFavoriteStatus 获取用户userID是否点赞了视频videoID
 func GetFavoriteStatus(userID, videoID uint64) bool {
-	var f dao.Favorite
+	var favorite dao.Favorite
 	// 得到结果
-	global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).Limit(1).Find(&f)
-	return f.IsFavorite
+	global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).
+		Limit(1).Find(&favorite)
+	return favorite.IsFavorite
 }
 
 // GetFavoriteStatusList 根据userID和，videoIDList 返回点赞状态（列表）

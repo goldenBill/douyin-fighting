@@ -91,3 +91,20 @@ douyin-fighting/
 ### 目前的问题
 
 - 点赞、评论涉及到用户和视频，后面需要统一一下
+
+## 5. 关注接口
+
+### 主要文件及功能说明
+```
+douyin-fighting/
+│
+├─controller
+│     relation.go
+│
+├─dao
+│     follow.go
+│
+└─service
+      follow.go
+```
+### 文档说明
