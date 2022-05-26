@@ -69,6 +69,7 @@ func GetUserListByUserIDs(UserIDs []uint64, userList *[]dao.User) (err error) {
 	if result.Error != nil {
 		err = errors.New("query GetUserListByUserIDs error")
 	}
+	// 确保顺序输出
 	mapUserIDToUser := make(map[uint64]dao.User)
 	*userList = make([]dao.User, len(UserIDs))
 	for idx, user := range uniqueUserList {

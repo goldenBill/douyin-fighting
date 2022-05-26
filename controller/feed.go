@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
@@ -27,7 +28,7 @@ func Feed(c *gin.Context) {
 	var CurrentTime string = strconv.FormatInt(CurrentTimeInt, 10)
 	var LatestTimeStr string = c.DefaultQuery("latest_time", CurrentTime)
 	LatestTime, err := strconv.ParseInt(LatestTimeStr, 10, 64)
-	println(CurrentTime, LatestTimeStr)
+
 	if err != nil {
 		//无法解析latest_time
 		c.JSON(http.StatusBadRequest, Response{StatusCode: 1, StatusMsg: "parameter latest_time is wrong"})
@@ -37,6 +38,7 @@ func Feed(c *gin.Context) {
 	var authorList []dao.User
 	numVideos, err := service.GetFeedVideosAndAuthors(&videoList, &authorList, LatestTime, global.GVAR_FEED_NUM)
 
+	println(numVideos, "@@@\n\n\n")
 	if err != nil {
 		//访问数据库出错
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
@@ -142,8 +144,7 @@ func Feed(c *gin.Context) {
 
 	//本次返回的视频中发布最早的时间
 	nextTime := videoList[numVideos-1].CreatedAt.UnixMilli()
-	//println(videoList)
-	//println("\n\n\n\n\n\n\n\n")
+	fmt.Println(time.UnixMilli(LatestTime), videoList[numVideos-1].CreatedAt, videoJsonList)
 
 	c.JSON(http.StatusOK, FeedResponse{
 		Response:  Response{StatusCode: 0},
