@@ -3,9 +3,11 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/goldenBill/douyin-fighting/dao"
+	"github.com/goldenBill/douyin-fighting/global"
 	"github.com/goldenBill/douyin-fighting/service"
 	"github.com/goldenBill/douyin-fighting/util"
 	"net/http"
+	"unicode/utf8"
 )
 
 // CommentActionRequest 评论操作的请求
@@ -65,18 +67,32 @@ func CommentAction(c *gin.Context) {
 
 	// 评论操作
 	if r.ActionType == 1 {
+		// 判断comment是否合法
+		if utf8.RuneCountInString(r.CommentText) > global.GVAR_MAX_COMMENT_LENGTH ||
+			utf8.RuneCountInString(r.CommentText) <= 0 {
+			c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "非法评论"})
+			return
+		}
 		// 添加评论
 		commentDao, err := service.AddComment(r.UserID, r.VideoID, r.CommentText)
 		if err != nil {
+			// 评论失败
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
 			return
 		}
-		userDao, _ := service.UserInfoByUserID(commentDao.UserID)
+		userDao, err := service.UserInfoByUserID(commentDao.UserID)
+		if err != nil {
+			// 未找到评论的用户
+			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
+			return
+		}
+		// 批量判断用户是否关注
 		isFollow, err := service.GetIsFollowStatus(r.UserID, userDao.UserID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
 		}
+		// 返回JSON
 		c.JSON(http.StatusOK, CommentActionResponse{
 			Response: Response{StatusCode: 0},
 			Comment: Comment{
@@ -95,6 +111,7 @@ func CommentAction(c *gin.Context) {
 			},
 		})
 	} else {
+		// 删除评论
 		err = service.DeleteComment(r.UserID, r.VideoID, r.CommentID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
@@ -116,6 +133,7 @@ func CommentList(c *gin.Context) {
 
 	var commentDaoList []dao.Comment
 	var userDaoList []dao.User
+	// 获取评论列表以及对应的作者
 	if err = service.GetCommentListAndUserList(r.VideoID, &commentDaoList, &userDaoList); err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
@@ -132,20 +150,22 @@ func CommentList(c *gin.Context) {
 	if token := c.Query("token"); token != "" {
 		claims, err := util.ParseToken(token)
 		if err == nil {
+			// token合法
 			userID = claims.UserID
 			if service.IsUserIDExist(userID) {
+				// 用户存在
 				isLogged = true
 			}
 		}
 	}
 
 	if isLogged {
-		// 当用户登录时 一次性获取用户是否点赞了列表中的视频以及是否关注了视频的作者
+		// 当用户登录时 一次性获取用户是否点赞了列表中的视频以及是否关注了评论的作者
 		authorIDList := make([]uint64, len(commentDaoList))
 		for i, user_ := range userDaoList {
 			authorIDList[i] = user_.UserID
 		}
-
+		// 批量判断用户是否关注评论的作者
 		isFollowList, err = service.GetIsFollowStatusList(userID, authorIDList)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})

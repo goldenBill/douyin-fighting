@@ -9,7 +9,10 @@ import (
 
 // AddComment 用户userID向视频videoID发送评论，评论内容为commentText
 func AddComment(userID uint64, videoID uint64, commentText string) (dao.Comment, error) {
-	commentID, _ := global.GVAR_ID_GENERATOR.NextID()
+	commentID, err := global.GVAR_ID_GENERATOR.NextID()
+	if err != nil {
+		return dao.Comment{}, err
+	}
 	comment := dao.Comment{
 		CommentID: commentID,
 		VideoID:   videoID,
@@ -17,7 +20,7 @@ func AddComment(userID uint64, videoID uint64, commentText string) (dao.Comment,
 		Content:   commentText,
 	}
 
-	if err := global.GVAR_DB.Transaction(func(tx *gorm.DB) error {
+	if err = global.GVAR_DB.Transaction(func(tx *gorm.DB) error {
 		// 在事务中执行一些 db 操作（从这里开始，您应该使用 'tx' 而不是 'db'）
 		if err := tx.Create(&comment).Error; err != nil {
 			// 返回任何错误都会回滚事务

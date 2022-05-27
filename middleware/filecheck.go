@@ -53,7 +53,7 @@ func GetFileType(fSrc []byte) string {
 func FileCheck() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		data, err := c.FormFile("data")
-		if data.Size >= global.GVAR_FILE_MAX_SIZE {
+		if data.Size >= global.GVAR_MAX_FILE_SIZE {
 			// 检验上传文件的大小
 			c.JSON(http.StatusForbidden, controller.Response{
 				StatusCode: 1,

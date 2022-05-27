@@ -67,8 +67,10 @@ func Feed(c *gin.Context) {
 	if token := c.Query("token"); token != "" {
 		claims, err := util.ParseToken(token)
 		if err == nil {
+			// token合法
 			userID = claims.UserID
 			if service.IsUserIDExist(userID) {
+				// userID存在
 				isLogged = true
 			}
 		}
@@ -82,30 +84,30 @@ func Feed(c *gin.Context) {
 			videoIDList[idx] = video.VideoID
 			authorIDList[idx] = video.AuthorID
 		}
-
+		// 批量获取用户是否用视频点赞
 		isFavoriteList, err = service.GetFavoriteStatusList(userID, videoIDList)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
 		}
+		// 批量获取用户是否关注作者
 		isFollowList, err = service.GetIsFollowStatusList(userID, authorIDList)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
 		}
-
 	}
 
 	var isFavorite bool
 	var isFollow bool
 
 	for idx, video = range videoList {
-		// 未登录时默认为未关注未点赞
 		if isLogged {
 			// 当用户登录时，判断是否关注当前作者
 			isFollow = isFollowList[idx]
 			isFavorite = isFavoriteList[idx]
 		} else {
+			// 未登录时默认为未关注未点赞
 			isFavorite = false
 			isFollow = false
 		}
@@ -119,7 +121,7 @@ func Feed(c *gin.Context) {
 		if _, err = os.Stat(CoverLocation); err != nil {
 			continue
 		}
-
+		// 填充JSON返回值
 		author = authorList[idx]
 		authorJson.ID = author.UserID
 		authorJson.Name = author.Name
@@ -143,7 +145,6 @@ func Feed(c *gin.Context) {
 
 	//本次返回的视频中发布最早的时间
 	nextTime := videoList[numVideos-1].CreatedAt.UnixMilli()
-	//fmt.Println(time.UnixMilli(LatestTime), videoList[numVideos-1].CreatedAt, videoJsonList)
 
 	c.JSON(http.StatusOK, FeedResponse{
 		Response:  Response{StatusCode: 0},
