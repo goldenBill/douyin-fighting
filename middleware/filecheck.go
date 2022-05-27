@@ -57,7 +57,7 @@ func FileCheck() gin.HandlerFunc {
 			// 检验上传文件的大小
 			c.JSON(http.StatusForbidden, controller.Response{
 				StatusCode: 1,
-				StatusMsg:  "Published video should be smaller than 200 MB",
+				StatusMsg:  "Published video should be smaller than 10 MB",
 			})
 			c.Abort()
 			return

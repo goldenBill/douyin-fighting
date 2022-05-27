@@ -59,12 +59,6 @@ func CommentAction(c *gin.Context) {
 	// 获取 userID
 	r.UserID = c.GetUint64("UserID")
 
-	// 判断videoID是否合法
-	if !service.IsVideoExist(r.VideoID) {
-		c.JSON(http.StatusBadRequest, Response{StatusCode: 1, StatusMsg: "video ID error"})
-		return
-	}
-
 	// 评论操作
 	if r.ActionType == 1 {
 		// 判断comment是否合法

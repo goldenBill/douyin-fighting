@@ -22,15 +22,15 @@ func AddComment(userID uint64, videoID uint64, commentText string) (dao.Comment,
 
 	if err = global.GVAR_DB.Transaction(func(tx *gorm.DB) error {
 		// 在事务中执行一些 db 操作（从这里开始，您应该使用 'tx' 而不是 'db'）
-		if err := tx.Create(&comment).Error; err != nil {
+		if result := tx.Model(&dao.Video{}).Where("video_id = ?", videoID).Update("comment_count", gorm.Expr("comment_count + 1")); result.Error != nil {
+			return result.Error
+		} else if result.RowsAffected == 0 {
+			return errors.New("video_id 不存在")
+		}
+		if result := tx.Create(&comment); result.Error != nil {
 			// 返回任何错误都会回滚事务
-			return err
+			return result.Error
 		}
-
-		if err := tx.Model(&dao.Video{}).Where("video_id = ?", videoID).Update("comment_count", gorm.Expr("comment_count + 1")).Error; err != nil {
-			return err
-		}
-
 		// 返回 nil 提交事务
 		return nil
 	}); err != nil {
@@ -43,22 +43,20 @@ func AddComment(userID uint64, videoID uint64, commentText string) (dao.Comment,
 // DeleteComment 用户userID删除视频videoID的评论commentID
 func DeleteComment(userID uint64, videoID uint64, commentID uint64) error {
 	var comment dao.Comment
-	if err := global.GVAR_DB.Where("comment_id = ?", commentID).Find(&comment).Error; err != nil {
-		return err
-	} else if comment.UserID != userID {
-		// 删除其他用户评论
-		return errors.New("不用删除其他用户评论")
-	}
-
+	comment.CommentID = commentID
 	err := global.GVAR_DB.Transaction(func(tx *gorm.DB) error {
 		// 在事务中执行一些 db 操作（从这里开始，您应该使用 'tx' 而不是 'db'）
-		if err := tx.Delete(&comment).Error; err != nil {
+		if result := tx.Where("user_id = ? and video_id = ?", userID, videoID).Delete(&comment); result.Error != nil {
 			// 返回任何错误都会回滚事务
-			return err
+			return result.Error
+		} else if result.RowsAffected == 0 {
+			return errors.New("Comment 表中 user_id 或 video_id 不存在")
 		}
 
-		if err := tx.Model(&dao.Video{}).Where("video_id = ?", videoID).Update("comment_count", gorm.Expr("comment_count -1")).Error; err != nil {
-			return err
+		if result := tx.Model(&dao.Video{}).Where("video_id = ?", videoID).Update("comment_count", gorm.Expr("comment_count -1")); result.Error != nil {
+			return result.Error
+		} else if result.RowsAffected == 0 {
+			return errors.New("video 表中 video_id 不存在")
 		}
 
 		// 返回 nil 提交事务

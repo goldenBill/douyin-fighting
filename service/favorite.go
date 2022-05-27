@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
 	"gorm.io/gorm"
@@ -47,8 +48,10 @@ func FavoriteAction(userID, videoID uint64) error {
 		}
 		// 查询视频作者
 		var video dao.Video
-		if err := tx.Where("video_id = ?", videoID).Limit(1).Find(&video).Error; err != nil {
-			return err
+		if result := tx.Where("video_id = ?", videoID).Limit(1).Find(&video); result.Error != nil {
+			return result.Error
+		} else if result.RowsAffected == 0 {
+			return errors.New("video 表中 video_id 不存在")
 		}
 		// 更新 users 表的 TotalFavorited
 		if err := tx.Model(&dao.User{}).Where("user_id = ?", video.AuthorID).
@@ -89,8 +92,10 @@ func CancelFavorite(userID, videoID uint64) error {
 		}
 		// 查询视频作者
 		var video dao.Video
-		if err := tx.Where("video_id = ?", videoID).Limit(1).Find(&video).Error; err != nil {
-			return err
+		if result := tx.Where("video_id = ?", videoID).Limit(1).Find(&video); result.Error != nil {
+			return result.Error
+		} else if result.RowsAffected == 0 {
+			return errors.New("video 表中 video_id 不存在")
 		}
 		// 更新 users 表的 TotalFavorited
 		if err := tx.Model(&dao.User{}).Where("user_id = ?", video.AuthorID).
