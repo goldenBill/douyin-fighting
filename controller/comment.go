@@ -2,14 +2,17 @@ package controller
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/goldenBill/douyin-fighting/dao"
+	"github.com/goldenBill/douyin-fighting/global"
 	"github.com/goldenBill/douyin-fighting/service"
 	"github.com/goldenBill/douyin-fighting/util"
 	"net/http"
+	"unicode/utf8"
 )
 
 // CommentActionRequest 评论操作的请求
 type CommentActionRequest struct {
-	UserID      uint64 `form:"user_id" json:"user_id"`
+	UserID      uint64 `form:"user_id" json:"user_id"` // apk并没有传user_id这个参数
 	Token       string `form:"token" json:"token"`
 	VideoID     uint64 `form:"video_id" json:"video_id"`
 	ActionType  uint   `form:"action_type" json:"action_type"`
@@ -36,6 +39,7 @@ type CommentListResponse struct {
 }
 
 // CommentAction no practical effect, just check if token is valid
+// 1. 确保操作类型正确 2. 确保video_id正确 3. 确保当前用户有权限删除
 func CommentAction(c *gin.Context) {
 	// 参数绑定
 	var r CommentActionRequest
@@ -51,24 +55,44 @@ func CommentAction(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, Response{StatusCode: 1, StatusMsg: "action type error"})
 		return
 	}
+
 	// 获取 userID
 	r.UserID = c.GetUint64("UserID")
 
-	// 判断 video_id 是否正确
+	// 判断videoID是否合法
+	if !service.IsVideoExist(r.VideoID) {
+		c.JSON(http.StatusBadRequest, Response{StatusCode: 1, StatusMsg: "video ID error"})
+		return
+	}
 
 	// 评论操作
 	if r.ActionType == 1 {
+		// 判断comment是否合法
+		if utf8.RuneCountInString(r.CommentText) > global.GVAR_MAX_COMMENT_LENGTH ||
+			utf8.RuneCountInString(r.CommentText) <= 0 {
+			c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "非法评论"})
+			return
+		}
+		// 添加评论
 		commentDao, err := service.AddComment(r.UserID, r.VideoID, r.CommentText)
 		if err != nil {
+			// 评论失败
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
 			return
 		}
-		userDao, _ := service.UserInfoByUserID(commentDao.UserID)
+		userDao, err := service.UserInfoByUserID(commentDao.UserID)
+		if err != nil {
+			// 未找到评论的用户
+			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
+			return
+		}
+		// 批量判断用户是否关注
 		isFollow, err := service.GetIsFollowStatus(r.UserID, userDao.UserID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
 		}
+		// 返回JSON
 		c.JSON(http.StatusOK, CommentActionResponse{
 			Response: Response{StatusCode: 0},
 			Comment: Comment{
@@ -87,6 +111,7 @@ func CommentAction(c *gin.Context) {
 			},
 		})
 	} else {
+		// 删除评论
 		err = service.DeleteComment(r.UserID, r.VideoID, r.CommentID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
@@ -106,7 +131,13 @@ func CommentList(c *gin.Context) {
 		return
 	}
 
-	commentDaoList, userDaoList := service.GetCommentListAndUserList(r.VideoID)
+	var commentDaoList []dao.Comment
+	var userDaoList []dao.User
+	// 获取评论列表以及对应的作者
+	if err = service.GetCommentListAndUserList(r.VideoID, &commentDaoList, &userDaoList); err != nil {
+		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
+		return
+	}
 
 	var (
 		isFollowList []bool
@@ -119,20 +150,22 @@ func CommentList(c *gin.Context) {
 	if token := c.Query("token"); token != "" {
 		claims, err := util.ParseToken(token)
 		if err == nil {
+			// token合法
 			userID = claims.UserID
 			if service.IsUserIDExist(userID) {
+				// 用户存在
 				isLogged = true
 			}
 		}
 	}
 
 	if isLogged {
-		// 当用户登录时 一次性获取用户是否点赞了列表中的视频以及是否关注了视频的作者
+		// 当用户登录时 一次性获取用户是否点赞了列表中的视频以及是否关注了评论的作者
 		authorIDList := make([]uint64, len(commentDaoList))
 		for i, user_ := range userDaoList {
 			authorIDList[i] = user_.UserID
 		}
-
+		// 批量判断用户是否关注评论的作者
 		isFollowList, err = service.GetIsFollowStatusList(userID, authorIDList)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
@@ -140,34 +173,41 @@ func CommentList(c *gin.Context) {
 		}
 	}
 
-	commentList := make([]Comment, 0, len(commentDaoList))
-	for i := 0; i < len(commentDaoList); i++ {
+	var (
+		commentJsonList = make([]Comment, 0, len(commentDaoList))
+		commentJson     Comment
+		userJson        User
+		comment         dao.Comment
+		user            dao.User
+		idx             int
+	)
+
+	for idx, comment = range commentDaoList {
 		// 未登录时默认为未关注未点赞
 		if isLogged {
 			// 当用户登录时，判断是否关注当前作者
-			isFollow = isFollowList[i]
+			isFollow = isFollowList[idx]
 		} else {
 			isFollow = false
 		}
-		user := User{
-			ID:             userDaoList[i].UserID,
-			Name:           userDaoList[i].Name,
-			FollowCount:    userDaoList[i].FollowCount,
-			FollowerCount:  userDaoList[i].FollowerCount,
-			TotalFavorited: userDaoList[i].TotalFavorited,
-			FavoriteCount:  userDaoList[i].FavoriteCount,
-			IsFollow:       isFollow,
-		}
-		comment := Comment{
-			ID:         commentDaoList[i].CommentID,
-			User:       user,
-			Content:    commentDaoList[i].Content,
-			CreateDate: commentDaoList[i].CreatedAt.Format("01-02"),
-		}
-		commentList = append(commentList, comment)
+		user = userDaoList[idx]
+		userJson.ID = user.UserID
+		userJson.Name = user.Name
+		userJson.FollowCount = user.FollowCount
+		userJson.FollowerCount = user.FollowerCount
+		userJson.TotalFavorited = user.TotalFavorited
+		userJson.FavoriteCount = user.FavoriteCount
+		userJson.IsFollow = isFollow
+
+		commentJson.ID = comment.CommentID
+		commentJson.User = userJson
+		commentJson.Content = comment.Content
+		commentJson.CreateDate = comment.CreatedAt.Format("01-02")
+
+		commentJsonList = append(commentJsonList, commentJson)
 	}
 	c.JSON(http.StatusOK, CommentListResponse{
 		Response:    Response{StatusCode: 0},
-		CommentList: commentList,
+		CommentList: commentJsonList,
 	})
 }

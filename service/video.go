@@ -107,3 +107,10 @@ func CommentCountMinus(videoID uint64) error {
 	err := global.GVAR_DB.Model(&dao.Video{}).Where("video_id = ?", videoID).Update("comment_count", gorm.Expr("comment_count - 1")).Error
 	return err
 }
+
+// 判断当前videoID是否存在
+func IsVideoExist(videoID uint64) bool {
+	var count int64
+	global.GVAR_DB.Model(&dao.Video{}).Where("video_id = ?", videoID).Count(&count)
+	return count != 0
+}

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"unicode/utf8"
 )
 
 type VideoListResponse struct {
@@ -27,6 +28,12 @@ func Publish(c *gin.Context) {
 		return
 	}
 	title := c.PostForm("title")
+	// 判断title是否合法
+	if utf8.RuneCountInString(title) > global.GVAR_MAX_TITLE_LENGTH ||
+		utf8.RuneCountInString(title) <= 0 {
+		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "非法视频描述"})
+		return
+	}
 
 	data, err := c.FormFile("data")
 	if err != nil {
