@@ -9,19 +9,17 @@ import (
 )
 
 type UserClaims struct {
-	ID     uint64
 	UserID uint64
 	Name   string
 	jwt.RegisteredClaims
 }
 
-// GenerateToken : 生成 token
+// GenerateToken 生成 token
 func GenerateToken(user *dao.User) (string, error) {
 	//获取全局签名
 	mySigningKey := []byte(global.GVAR_JWT_SigningKey)
 	//配置 userClaims ,并生成 token
 	claims := UserClaims{
-		user.ID,
 		user.UserID,
 		user.Name,
 		jwt.RegisteredClaims{
@@ -35,7 +33,7 @@ func GenerateToken(user *dao.User) (string, error) {
 	return token.SignedString(mySigningKey)
 }
 
-// ParseToken : 解析 token
+// ParseToken 解析 token
 func ParseToken(tokenString string) (*UserClaims, error) {
 	//获取全局签名
 	mySigningKey := []byte(global.GVAR_JWT_SigningKey)

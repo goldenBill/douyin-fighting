@@ -44,7 +44,11 @@ func RelationAction(c *gin.Context) {
 // FollowList 获取关注列表
 func FollowList(c *gin.Context) {
 	// 参数绑定
-	followerID, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
+	followerID, err := strconv.ParseUint(c.Query("user_id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, Response{StatusCode: 1, StatusMsg: "request is invalid"})
+		return
+	}
 	// 判断是否登录
 	var (
 		isLogin  bool
@@ -87,7 +91,6 @@ func FollowList(c *gin.Context) {
 			userList[idx].IsFollow = isFollow
 		}
 	}
-
 	// 成功并返回
 	c.JSON(http.StatusOK, UserListResponse{
 		Response: Response{StatusCode: 0, StatusMsg: "OK"},
@@ -126,7 +129,7 @@ func FollowerList(c *gin.Context) {
 		isFollow := false
 		if isLogin {
 			// 登录时，获取是否关注，否则总是为false
-			isFollow = service.GetIsFollowStatus(viewerID, follower.UserID)
+			isFollow, _ = service.GetIsFollowStatus(viewerID, follower.UserID)
 		}
 		var user = User{
 			ID:            follower.UserID,

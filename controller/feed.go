@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
@@ -22,13 +21,12 @@ type FeedResponse struct {
 
 // Feed video list for every request
 func Feed(c *gin.Context) {
-	println("Feed\n\n\n\n")
 	// 不传latest_time默认为当前时间
 	var CurrentTimeInt int64 = time.Now().UnixMilli()
 	var CurrentTime string = strconv.FormatInt(CurrentTimeInt, 10)
 	var LatestTimeStr string = c.DefaultQuery("latest_time", CurrentTime)
 	LatestTime, err := strconv.ParseInt(LatestTimeStr, 10, 64)
-
+	//fmt.Println(time.UnixMilli(LatestTime).Format("2006-01-02 15:04:05"))
 	if err != nil {
 		//无法解析latest_time
 		c.JSON(http.StatusBadRequest, Response{StatusCode: 1, StatusMsg: "parameter latest_time is wrong"})
@@ -38,7 +36,6 @@ func Feed(c *gin.Context) {
 	var authorList []dao.User
 	numVideos, err := service.GetFeedVideosAndAuthors(&videoList, &authorList, LatestTime, global.GVAR_FEED_NUM)
 
-	println(numVideos, "@@@\n\n\n")
 	if err != nil {
 		//访问数据库出错
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
@@ -48,13 +45,13 @@ func Feed(c *gin.Context) {
 		c.JSON(http.StatusOK, FeedResponse{
 			Response:  Response{StatusCode: 0},
 			VideoList: nil,
-			NextTime:  CurrentTimeInt,
+			NextTime:  CurrentTimeInt, // 没有视频可刷时返回当前时间
 		})
 		return
 	}
 
 	var (
-		videoJsonList  []Video
+		videoJsonList  = make([]Video, 0, numVideos)
 		videoJson      Video
 		video          dao.Video
 		author         dao.User
@@ -79,19 +76,19 @@ func Feed(c *gin.Context) {
 
 	if isLogged {
 		// 当用户登录时 一次性获取用户是否点赞了列表中的视频以及是否关注了视频的作者
-		videoIdList := make([]uint64, numVideos)
-		authorIdList := make([]uint64, numVideos)
+		videoIDList := make([]uint64, numVideos)
+		authorIDList := make([]uint64, numVideos)
 		for idx, video = range videoList {
-			videoIdList[idx] = video.VideoID
-			authorIdList[idx] = video.AuthorID
+			videoIDList[idx] = video.VideoID
+			authorIDList[idx] = video.AuthorID
 		}
 
-		isFavoriteList, err = service.GetFavoriteStatusList(userID, videoIdList)
+		isFavoriteList, err = service.GetFavoriteStatusList(userID, videoIDList)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
 		}
-		isFollowList, err = service.GetIsFollowStatusList(userID, authorIdList)
+		isFollowList, err = service.GetIsFollowStatusList(userID, authorIDList)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
@@ -128,6 +125,8 @@ func Feed(c *gin.Context) {
 		authorJson.Name = author.Name
 		authorJson.FollowCount = author.FollowCount
 		authorJson.FollowerCount = author.FollowerCount
+		authorJson.TotalFavorited = author.TotalFavorited
+		authorJson.FavoriteCount = author.FavoriteCount
 		authorJson.IsFollow = isFollow
 
 		videoJson.ID = video.VideoID
@@ -144,7 +143,7 @@ func Feed(c *gin.Context) {
 
 	//本次返回的视频中发布最早的时间
 	nextTime := videoList[numVideos-1].CreatedAt.UnixMilli()
-	fmt.Println(time.UnixMilli(LatestTime), videoList[numVideos-1].CreatedAt, videoJsonList)
+	//fmt.Println(time.UnixMilli(LatestTime), videoList[numVideos-1].CreatedAt, videoJsonList)
 
 	c.JSON(http.StatusOK, FeedResponse{
 		Response:  Response{StatusCode: 0},

@@ -19,7 +19,6 @@ type VideoListResponse struct {
 
 // Publish check token then save upload file to public directory
 func Publish(c *gin.Context) {
-	println("Publish\n\n\n\n")
 	// 获取 userID
 	userID := c.GetUint64("UserID")
 	// 判断userID是否存在
@@ -91,7 +90,6 @@ func Publish(c *gin.Context) {
 
 // PublishList all users have same publish video list
 func PublishList(c *gin.Context) {
-	println("PublishList\n\n\n\n")
 	var err error
 	// 获取 authorID
 	authorID, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
@@ -138,19 +136,19 @@ func PublishList(c *gin.Context) {
 
 	if isLogged {
 		// 当用户登录时 一次性获取用户是否点赞了列表中的视频以及是否关注了视频的作者
-		videoIdList := make([]uint64, numVideos)
-		authorIdList := make([]uint64, numVideos)
+		videoIDList := make([]uint64, numVideos)
+		authorIDList := make([]uint64, numVideos)
 		for idx, video = range videoList {
-			videoIdList[idx] = video.VideoID
-			authorIdList[idx] = video.AuthorID
+			videoIDList[idx] = video.VideoID
+			authorIDList[idx] = video.AuthorID
 		}
 
-		isFavoriteList, err = service.GetFavoriteStatusList(userID, videoIdList)
+		isFavoriteList, err = service.GetFavoriteStatusList(userID, videoIDList)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
 		}
-		isFollowList, err = service.GetIsFollowStatusList(userID, authorIdList)
+		isFollowList, err = service.GetIsFollowStatusList(userID, authorIDList)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
@@ -171,7 +169,6 @@ func PublishList(c *gin.Context) {
 			isFavorite = false
 			isFollow = false
 		}
-
 		// 二次确认返回的视频与封面是服务器存在的
 		VideoLocation := filepath.Join(global.GVAR_VIDEO_ADDR, video.PlayName)
 		if _, err = os.Stat(VideoLocation); err != nil {
@@ -187,6 +184,8 @@ func PublishList(c *gin.Context) {
 		authorJson.Name = author.Name
 		authorJson.FollowCount = author.FollowCount
 		authorJson.FollowerCount = author.FollowerCount
+		authorJson.TotalFavorited = author.TotalFavorited
+		authorJson.FavoriteCount = author.FavoriteCount
 		authorJson.IsFollow = isFollow
 
 		videoJson.ID = video.VideoID
