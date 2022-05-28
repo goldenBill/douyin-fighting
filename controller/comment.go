@@ -146,10 +146,11 @@ func CommentList(c *gin.Context) {
 		if err == nil {
 			// token合法
 			userID = claims.UserID
-			if service.IsUserIDExist(userID) {
-				// 用户存在
-				isLogged = true
-			}
+			isLogged = true
+			//if service.IsUserIDExist(userID) {
+			//	// 用户存在
+			//	isLogged = true
+			//}
 		}
 	}
 

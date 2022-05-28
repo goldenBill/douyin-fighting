@@ -1,4 +1,4 @@
-package redis
+package service
 
 import (
 	"context"
@@ -7,18 +7,22 @@ import (
 	"github.com/goldenBill/douyin-fighting/global"
 )
 
+type void struct{}
+
+var member void
+
 var (
-	CTX                   context.Context = context.Background()
-	UserPattern           string          = "user:%d"
-	UserFavoritePattern   string          = "favorite:%d"
-	VideoFavoritedPattern string          = "favorited:%d"
-	CelebrityPattern      string          = "celebrity:%d"
-	FollowerPattern       string          = "follower:%d"
+	CTX                 context.Context = context.Background()
+	HEADER              string          = ""
+	UserPattern         string          = "user:%d"
+	UserFavoritePattern string          = "favorite:%d"
+	CelebrityPattern    string          = "celebrity:%d"
+	FollowerPattern     string          = "follower:%d"
 )
 
 func Retry(fn func(*redis.Tx) error, keys ...string) error {
 	// Retry if the key has been changed.
-	for i := 0; i < global.GVAR_MAX_RETRIES; i++ {
+	for i := 0; i < global.MAX_RETRIES; i++ {
 		err := global.GVAR_REDIS.Watch(CTX, fn, keys...)
 		if err == nil {
 			// Success.

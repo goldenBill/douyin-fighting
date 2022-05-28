@@ -59,9 +59,10 @@ func FollowList(c *gin.Context) {
 		claims, err := util.ParseToken(token)
 		if err == nil {
 			viewerID = claims.UserID
-			if service.IsUserIDExist(viewerID) {
-				isLogin = true
-			}
+			isLogin = true
+			//if service.IsUserIDExist(viewerID) {
+			//	isLogin = true
+			//}
 		}
 	}
 	// 获取用户的关注列表
@@ -112,9 +113,10 @@ func FollowerList(c *gin.Context) {
 		claims, err := util.ParseToken(token)
 		if err == nil {
 			viewerID = claims.UserID
-			if service.IsUserIDExist(viewerID) {
-				isLogin = true
-			}
+			isLogin = true
+			//if service.IsUserIDExist(viewerID) {
+			//	isLogin = true
+			//}
 		}
 	}
 	// 获取用户的粉丝列表

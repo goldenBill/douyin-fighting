@@ -13,7 +13,7 @@ func Redis() {
 		DB:       0,  // use default DB
 	})
 	if _, err := rdb.Ping(context.Background()).Result(); err != nil {
-		return
+		panic(err.Error())
 	}
 	global.GVAR_REDIS = rdb
 }

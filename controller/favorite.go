@@ -75,9 +75,10 @@ func FavoriteList(c *gin.Context) {
 		claims, err := util.ParseToken(token)
 		if err == nil {
 			userID = claims.UserID
-			if service.IsUserIDExist(userID) {
-				isLogin = true
-			}
+			isLogin = true
+			//if service.IsUserIDExist(userID) {
+			//	isLogin = true
+			//}
 		}
 	}
 	//获取用户的点赞列表

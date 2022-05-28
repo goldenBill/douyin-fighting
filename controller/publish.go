@@ -23,10 +23,10 @@ func Publish(c *gin.Context) {
 	// 获取 userID
 	userID := c.GetUint64("UserID")
 	// 判断userID是否存在
-	if !service.IsUserIDExist(userID) {
-		c.JSON(http.StatusForbidden, Response{StatusCode: 1, StatusMsg: "User doesn't exist"})
-		return
-	}
+	//if !service.IsUserIDExist(userID) {
+	//	c.JSON(http.StatusForbidden, Response{StatusCode: 1, StatusMsg: "User doesn't exist"})
+	//	return
+	//}
 	title := c.PostForm("title")
 	// 判断title是否合法
 	if utf8.RuneCountInString(title) > global.GVAR_MAX_TITLE_LENGTH ||
@@ -135,9 +135,10 @@ func PublishList(c *gin.Context) {
 		claims, err := util.ParseToken(token)
 		if err == nil {
 			userID = claims.UserID
-			if service.IsUserIDExist(userID) {
-				isLogged = true
-			}
+			isLogged = true
+			//if service.IsUserIDExist(userID) {
+			//	isLogged = true
+			//}
 		}
 	}
 

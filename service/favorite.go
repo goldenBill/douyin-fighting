@@ -4,7 +4,6 @@ import (
 	"errors"
 	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
-	"github.com/goldenBill/douyin-fighting/service/redis"
 	"gorm.io/gorm"
 )
 
@@ -59,8 +58,8 @@ func FavoriteAction(userID, videoID uint64) error {
 			Update("total_favorited", gorm.Expr("total_favorited + 1")).Error; err != nil {
 			return err
 		}
-		//更新 redis
-		if err := redis.FavoriteAction(videoID, userID, video.AuthorID); err != nil {
+		//删除 redis 缓存
+		if err := DeleteFavoriteFromCache(videoID, userID, video.AuthorID); err != nil {
 			return err
 		}
 		return nil
@@ -107,73 +106,80 @@ func CancelFavorite(userID, videoID uint64) error {
 			Update("total_favorited", gorm.Expr("total_favorited - 1")).Error; err != nil {
 			return err
 		}
-		//更新 redis
-		if err := redis.CancelFavorite(videoID, userID, video.AuthorID); err != nil {
+		//删除 redis 缓存
+		if err := DeleteFavoriteFromCache(videoID, userID, video.AuthorID); err != nil {
 			return err
 		}
 		return nil
 	})
 }
 
-// GetFavoriteListByUserID 获取用户点赞列表
-func GetFavoriteListByUserID(userID uint64) ([]dao.Video, error) {
+func GetFavoriteVideoIDListByUserID(userID uint64) ([]uint64, error) {
 	//查询redis
-	if videoDaoList, err := redis.GetFavoriteListByUserID(userID); err == nil {
-		return videoDaoList, nil
+	favoriteVideoIDList, err := GetFavoriteListByUserIDFromCache(userID)
+	if err == nil {
 	} else if err.Error() != "Not found in cache" {
 		return nil, err
+	} else {
+		//redis没找到，数据库查询
+		var favoriteList []dao.Favorite
+		result := global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and is_favorite = ?", userID, true).
+			Find(&favoriteList)
+		if result.Error != nil {
+			return nil, result.Error
+		}
+		favoriteVideoIDList = make([]uint64, 0, len(favoriteList))
+		for _, each := range favoriteList {
+			favoriteVideoIDList = append(favoriteVideoIDList, each.VideoID)
+		}
+		//更新 redis
+		if err := AddFavoriteListByUserIDInCache(userID, favoriteVideoIDList); err != nil {
+			return nil, err
+		}
 	}
-	//redis没找到，数据库查询
-	var favoriteList []dao.Favorite
-	result := global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and is_favorite = ?", userID, true).
-		Find(&favoriteList)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	videoIDList := make([]uint64, 0, len(favoriteList))
-	for _, each := range favoriteList {
-		videoIDList = append(videoIDList, each.VideoID)
-	}
-	var videoDaoList []dao.Video
-	err := GetVideoListByIDs(&videoDaoList, videoIDList)
+	return favoriteVideoIDList, nil
+}
+
+// GetFavoriteListByUserID 获取用户点赞列表
+func GetFavoriteListByUserID(userID uint64) ([]dao.Video, error) {
+	favoriteVideoIDList, err := GetFavoriteVideoIDListByUserID(userID)
 	if err != nil {
 		return nil, err
 	}
-	//更新 redis
-	if err := redis.SetFavoriteListWithUserID(userID, videoDaoList); err != nil {
+	//后续处理
+	var videoDaoList []dao.Video
+	err = GetVideoListByIDs(&videoDaoList, favoriteVideoIDList)
+	if err != nil {
 		return nil, err
 	}
 	return videoDaoList, nil
 }
 
-// GetFavoriteStatus 获取用户userID是否点赞了视频videoID
-func GetFavoriteStatus(userID, videoID uint64) bool {
-	var favorite dao.Favorite
-	// 得到结果
-	global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).
-		Limit(1).Find(&favorite)
-	return favorite.IsFavorite
-}
-
 // GetFavoriteStatusList 根据userID和，videoIDList 返回点赞状态（列表）
 func GetFavoriteStatusList(userID uint64, videoIDList []uint64) ([]bool, error) {
-	var favorites []dao.Favorite
-	result := global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id in ?", userID, videoIDList).
-		Limit(1).Find(&favorites)
-	if result.Error != nil {
-		return nil, result.Error
+	favoriteVideoIDList, err := GetFavoriteVideoIDListByUserID(userID)
+	if err != nil {
+		return nil, err
 	}
-	mapVideoIDToFavorite := make(map[uint64]*dao.Favorite, len(favorites))
-	for idx, favorite := range favorites {
-		mapVideoIDToFavorite[favorite.VideoID] = &favorites[idx]
+	//后续处理
+	mapVideoIDToFavorite := make(map[uint64]void, len(favoriteVideoIDList))
+	for _, each := range favoriteVideoIDList {
+		mapVideoIDToFavorite[each] = member
 	}
 	isFavoriteList := make([]bool, len(videoIDList)) // 返回结果
-	for i, videoID := range videoIDList {
-		if favorite := mapVideoIDToFavorite[videoID]; favorite != nil {
-			isFavoriteList[i] = favorite.IsFavorite
-		} else {
-			isFavoriteList[i] = false
+	for i, each := range videoIDList {
+		if _, ok := mapVideoIDToFavorite[each]; ok {
+			isFavoriteList[i] = true
 		}
 	}
 	return isFavoriteList, nil
 }
+
+//// GetFavoriteStatus 获取用户userID是否点赞了视频videoID
+//func GetFavoriteStatus(userID, videoID uint64) bool {
+//	var favorite dao.Favorite
+//	// 得到结果
+//	global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).
+//		Limit(1).Find(&favorite)
+//	return favorite.IsFavorite
+//}

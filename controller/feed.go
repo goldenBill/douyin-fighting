@@ -69,10 +69,11 @@ func Feed(c *gin.Context) {
 		if err == nil {
 			// token合法
 			userID = claims.UserID
-			if service.IsUserIDExist(userID) {
-				// userID存在
-				isLogged = true
-			}
+			isLogged = true
+			//if service.IsUserIDExist(userID) {
+			//	// userID存在
+			//	isLogged = true
+			//}
 		}
 	}
 
