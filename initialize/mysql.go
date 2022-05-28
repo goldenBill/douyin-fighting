@@ -13,11 +13,11 @@ import (
 	"time"
 )
 
-func InitMySQL() {
+func MySQL() {
 
 	username := "root"     //账号
 	password := "huangshm" //密码
-	host := "127.0.0.1"    //数据库地址，可以是Ip或者域名
+	host := "localhost"    //数据库地址，可以是Ip或者域名
 	port := 3306           //数据库端口
 	dbName := "douyin"     //数据库名
 	//dsn := "用户名:密码@tcp(地址:端口)/数据库名"

@@ -1,13 +1,16 @@
 package global
 
 import (
+	"github.com/go-redis/redis/v8"
 	"github.com/sony/sonyflake"
 	"gorm.io/gorm"
 	"sync"
+	"time"
 )
 
 var (
 	GVAR_DB                   *gorm.DB
+	GVAR_REDIS                *redis.Client
 	GVAR_FILE_TYPE_MAP        sync.Map
 	GVAR_ID_GENERATOR         *sonyflake.Sonyflake
 	GVAR_AUTO_CREATE_DB       bool            = true                   //是否自动生成数据库
@@ -23,4 +26,9 @@ var (
 	GVAR_MAX_COMMENT_LENGTH   int             = 300                    // 评论最大长度
 	GVAR_WHITELIST_VIDEO      map[string]bool = map[string]bool{".mp4": true, ".avi": true, ".wmv": true, ".mpeg": true,
 		".mov": true, ".flv": true, ".rmvb": true, ".3gb": true, ".vob": true, ".m4v": true}
+)
+
+var (
+	GVAR_MAX_RETRIES     int           = 1000
+	GVAR_FAVORITE_EXPIRE time.Duration = 10 * time.Minute
 )

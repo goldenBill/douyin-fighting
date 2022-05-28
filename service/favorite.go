@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
+	"github.com/goldenBill/douyin-fighting/service/redis"
 	"gorm.io/gorm"
 )
 
@@ -58,6 +59,10 @@ func FavoriteAction(userID, videoID uint64) error {
 			Update("total_favorited", gorm.Expr("total_favorited + 1")).Error; err != nil {
 			return err
 		}
+		//更新 redis
+		if err := redis.FavoriteAction(videoID, userID, video.AuthorID); err != nil {
+			return err
+		}
 		return nil
 	})
 }
@@ -102,12 +107,23 @@ func CancelFavorite(userID, videoID uint64) error {
 			Update("total_favorited", gorm.Expr("total_favorited - 1")).Error; err != nil {
 			return err
 		}
+		//更新 redis
+		if err := redis.CancelFavorite(videoID, userID, video.AuthorID); err != nil {
+			return err
+		}
 		return nil
 	})
 }
 
 // GetFavoriteListByUserID 获取用户点赞列表
 func GetFavoriteListByUserID(userID uint64) ([]dao.Video, error) {
+	//查询redis
+	if videoDaoList, err := redis.GetFavoriteListByUserID(userID); err == nil {
+		return videoDaoList, nil
+	} else if err.Error() != "Not found in cache" {
+		return nil, err
+	}
+	//redis没找到，数据库查询
 	var favoriteList []dao.Favorite
 	result := global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and is_favorite = ?", userID, true).
 		Find(&favoriteList)
@@ -121,7 +137,11 @@ func GetFavoriteListByUserID(userID uint64) ([]dao.Video, error) {
 	var videoDaoList []dao.Video
 	err := GetVideoListByIDs(&videoDaoList, videoIDList)
 	if err != nil {
-		return []dao.Video{}, err
+		return nil, err
+	}
+	//更新 redis
+	if err := redis.SetFavoriteListWithUserID(userID, videoDaoList); err != nil {
+		return nil, err
 	}
 	return videoDaoList, nil
 }

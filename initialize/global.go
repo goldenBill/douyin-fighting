@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func InitGlobal() {
+func Global() {
 	//初始化 ID 生成器
 	startTime, _ := time.Parse("2006-01-02 15:04:05", global.GVAR_START_TIME)
 	global.GVAR_ID_GENERATOR = sonyflake.NewSonyflake(sonyflake.Settings{

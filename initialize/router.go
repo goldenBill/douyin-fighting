@@ -6,7 +6,7 @@ import (
 	"github.com/goldenBill/douyin-fighting/middleware"
 )
 
-func InitRouter() {
+func Router() {
 	r := gin.Default()
 	// public directory is used to serve static resources
 	r.Static("/static", "./public")
