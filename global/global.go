@@ -31,7 +31,6 @@ var (
 )
 
 var (
-	MAX_RETRIES      int           = 1000
 	FAVORITE_EXPIRE  time.Duration = 10 * time.Minute
 	FOLLOW_EXPIRE    time.Duration = 10 * time.Minute
 	USER_INFO_EXPIRE time.Duration = 10 * time.Minute

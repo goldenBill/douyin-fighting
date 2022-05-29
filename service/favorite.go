@@ -133,7 +133,7 @@ func GetFavoriteVideoIDListByUserID(userID uint64) ([]uint64, error) {
 			favoriteVideoIDList = append(favoriteVideoIDList, each.VideoID)
 		}
 		//更新 redis
-		if err := AddFavoriteListByUserIDInCache(userID, favoriteVideoIDList); err != nil {
+		if err = AddFavoriteListByUserIDInCache(userID, favoriteVideoIDList); err != nil {
 			return nil, err
 		}
 	}

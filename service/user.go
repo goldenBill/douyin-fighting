@@ -54,7 +54,7 @@ func UserInfoByUserID(userID uint64) (user *dao.User, err error) {
 		return
 	}
 	//更新 redis
-	if err := AddUserInfoByUserIDFromCacheInCache(user); err != nil {
+	if err = AddUserInfoByUserIDFromCacheInCache(user); err != nil {
 		return nil, err
 	}
 	return
@@ -81,7 +81,7 @@ func GetUserListByUserIDList(UserIDList []uint64) ([]dao.User, error) {
 		mapUserIDToUser[user.UserID] = uniqueUserList[idx]
 	}
 	//更新 redis
-	if err := AddUserListByUserIDListsFromCacheInCache(uniqueUserList); err != nil {
+	if err = AddUserListByUserIDListsFromCacheInCache(uniqueUserList); err != nil {
 		return nil, err
 	}
 	//后续操作

@@ -19,10 +19,18 @@ func GetUserInfoByUserIDFromCache(userID uint64) (*dao.User, error) {
 		return nil, errors.New("Not found in cache")
 	}
 	// Scan all fields into the model.
-	if err := global.GVAR_REDIS.HGetAll(global.GVAR_CONTEXT, userRedis).Scan(&user); err != nil {
-		panic(err)
+	var timeUnixMilliStr string
+	// Transactional function.
+	_, err := global.GVAR_REDIS.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
+		if err := pipe.HGetAll(global.GVAR_CONTEXT, userRedis).Scan(&user); err != nil {
+			panic(err)
+		}
+		timeUnixMilliStr = pipe.HGet(global.GVAR_CONTEXT, userRedis, "created_at").Val()
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
-	timeUnixMilliStr := global.GVAR_REDIS.HGet(global.GVAR_CONTEXT, userRedis, "created_at").Val()
 	global.GVAR_REDIS.Expire(global.GVAR_CONTEXT, userRedis, global.USER_INFO_EXPIRE)
 	timeUnixMilli, _ := strconv.ParseInt(timeUnixMilliStr, 10, 64)
 	user.CreatedAt = time.UnixMilli(timeUnixMilli)
@@ -34,27 +42,21 @@ func AddUserInfoByUserIDFromCacheInCache(user *dao.User) error {
 	userRedis := fmt.Sprintf(UserPattern, user.UserID)
 
 	// Transactional function.
-	txf := func(tx *redis.Tx) error {
-		// Operation is commited only if the watched keys remain unchanged.
-		_, err := tx.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-			pipe.HSet(global.GVAR_CONTEXT, userRedis, "user_id", user.UserID)
-			pipe.HSet(global.GVAR_CONTEXT, userRedis, "name", user.Name)
-			pipe.HSet(global.GVAR_CONTEXT, userRedis, "password", user.Password)
-			pipe.HSet(global.GVAR_CONTEXT, userRedis, "follow_count", user.FollowerCount)
-			pipe.HSet(global.GVAR_CONTEXT, userRedis, "follower_count", user.FollowerCount)
-			pipe.HSet(global.GVAR_CONTEXT, userRedis, "total_favorited", user.TotalFavorited)
-			pipe.HSet(global.GVAR_CONTEXT, userRedis, "favorite_count", user.FavoriteCount)
-			pipe.HSet(global.GVAR_CONTEXT, userRedis, "created_at", user.CreatedAt.UnixMilli())
+	_, err := global.GVAR_REDIS.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
+		pipe.HSet(global.GVAR_CONTEXT, userRedis, "user_id", user.UserID)
+		pipe.HSet(global.GVAR_CONTEXT, userRedis, "name", user.Name)
+		pipe.HSet(global.GVAR_CONTEXT, userRedis, "password", user.Password)
+		pipe.HSet(global.GVAR_CONTEXT, userRedis, "follow_count", user.FollowerCount)
+		pipe.HSet(global.GVAR_CONTEXT, userRedis, "follower_count", user.FollowerCount)
+		pipe.HSet(global.GVAR_CONTEXT, userRedis, "total_favorited", user.TotalFavorited)
+		pipe.HSet(global.GVAR_CONTEXT, userRedis, "favorite_count", user.FavoriteCount)
+		pipe.HSet(global.GVAR_CONTEXT, userRedis, "created_at", user.CreatedAt.UnixMilli())
+		//设置过期时间
+		pipe.Expire(global.GVAR_CONTEXT, userRedis, global.USER_INFO_EXPIRE)
+		return nil
+	})
+	return err
 
-			//设置过期时间
-			pipe.Expire(global.GVAR_CONTEXT, userRedis, global.USER_INFO_EXPIRE)
-			return nil
-		})
-		return err
-	}
-
-	// 多次尝试提交
-	return Retry(txf, userRedis)
 }
 
 func GetUserListByUserIDListFromCache(userIDList []uint64) (userList []dao.User, notInCache []uint64, err error) {

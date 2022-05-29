@@ -107,7 +107,7 @@ func GetFollowIDListByUserID(followerID uint64) ([]uint64, error) {
 			celebrityIDList = append(celebrityIDList, each.CelebrityID)
 		}
 		//更新 redis
-		if err := AddFollowIDListByUserIDInCache(followerID, celebrityIDList); err != nil {
+		if err = AddFollowIDListByUserIDInCache(followerID, celebrityIDList); err != nil {
 			return nil, err
 		}
 	}
@@ -146,7 +146,7 @@ func GetFollowerIDListByUserID(celebrityID uint64) ([]uint64, error) {
 			followerIDList = append(followerIDList, each.FollowerID)
 		}
 		//更新 redis
-		if err := AddFollowerIDListByUserIDInCache(celebrityID, followerIDList); err != nil {
+		if err = AddFollowerIDListByUserIDInCache(celebrityID, followerIDList); err != nil {
 			return nil, err
 		}
 	}
