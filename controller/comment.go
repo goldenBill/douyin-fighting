@@ -68,7 +68,7 @@ func CommentAction(c *gin.Context) {
 			return
 		}
 		// 添加评论
-		commentDao, err := service.AddComment(r.UserID, r.VideoID, r.CommentText)
+		commentDao, err := service.AddCommentRedis(r.UserID, r.VideoID, r.CommentText)
 		if err != nil {
 			// 评论失败
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
@@ -106,7 +106,7 @@ func CommentAction(c *gin.Context) {
 		})
 	} else {
 		// 删除评论
-		err = service.DeleteComment(r.UserID, r.VideoID, r.CommentID)
+		err = service.DeleteCommentRedis(r.UserID, r.VideoID, r.CommentID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
 			return
@@ -128,10 +128,12 @@ func CommentList(c *gin.Context) {
 	var commentDaoList []dao.Comment
 	var userDaoList []dao.User
 	// 获取评论列表以及对应的作者
-	if err = service.GetCommentListAndUserList(r.VideoID, &commentDaoList, &userDaoList); err != nil {
+	if err = service.GetCommentListAndUserListRedis(r.VideoID, &commentDaoList, &userDaoList); err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
+
+	//fmt.Println(commentDaoList)
 
 	var (
 		isFollowList []bool
@@ -196,7 +198,7 @@ func CommentList(c *gin.Context) {
 		commentJson.ID = comment.CommentID
 		commentJson.User = userJson
 		commentJson.Content = comment.Content
-		commentJson.CreateDate = comment.CreatedAt.Format("01-02")
+		commentJson.CreateDate = comment.CreatedAt.Format("2006-01-02 15:04:05 Monday")
 
 		commentJsonList = append(commentJsonList, commentJson)
 	}

@@ -21,12 +21,13 @@ type FeedResponse struct {
 
 // Feed video list for every request
 func Feed(c *gin.Context) {
+	//println("Feed\n\n\n")
 	// 不传latest_time默认为当前时间
 	var CurrentTimeInt int64 = time.Now().UnixMilli()
 	var CurrentTime string = strconv.FormatInt(CurrentTimeInt, 10)
 	var LatestTimeStr string = c.DefaultQuery("latest_time", CurrentTime)
 	LatestTime, err := strconv.ParseInt(LatestTimeStr, 10, 64)
-	//fmt.Println(time.UnixMilli(LatestTime).Format("2006-01-02 15:04:05"))
+	//fmt.Println(time.UnixMilli(LatestTime))
 	if err != nil {
 		//无法解析latest_time
 		c.JSON(http.StatusBadRequest, Response{StatusCode: 1, StatusMsg: "parameter latest_time is wrong"})
@@ -34,7 +35,10 @@ func Feed(c *gin.Context) {
 	}
 	var videoList []dao.Video
 	var authorList []dao.User
-	numVideos, err := service.GetFeedVideosAndAuthors(&videoList, &authorList, LatestTime, global.GVAR_FEED_NUM)
+
+	//service.GetFeedVideosAndAuthorsRedis(&videoList, &authorList, LatestTime, global.GVAR_FEED_NUM)
+
+	numVideos, err := service.GetFeedVideosAndAuthorsRedis(&videoList, &authorList, LatestTime, global.GVAR_FEED_NUM)
 
 	if err != nil {
 		//访问数据库出错
