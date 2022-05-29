@@ -79,6 +79,8 @@ func Publish(c *gin.Context) {
 		return
 	}
 
+	err = service.PublishVideoRedis(userID, videoID, videoName, coverName, title)
+
 	err = service.PublishVideo(userID, videoID, videoName, coverName, title)
 	if err != nil {
 		// 无法写库
@@ -103,7 +105,8 @@ func PublishList(c *gin.Context) {
 
 	var videoList []dao.Video
 	var authorList []dao.User
-	numVideos, err := service.GetPublishedVideosAndAuthors(&videoList, &authorList, authorID)
+	numVideos, err := service.GetPublishedVideosAndAuthorsRedis(&videoList, &authorList, authorID)
+	//fmt.Println(videoList, authorList)
 	if err != nil {
 		//访问数据库出错
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})

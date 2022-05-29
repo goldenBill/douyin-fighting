@@ -1,6 +1,7 @@
 package global
 
 import (
+	"context"
 	"github.com/go-redis/redis/v8"
 	"github.com/sony/sonyflake"
 	"gorm.io/gorm"
@@ -11,6 +12,7 @@ import (
 var (
 	GVAR_DB                   *gorm.DB
 	GVAR_REDIS                *redis.Client
+	GVAR_CONTEXT              = context.Background()
 	GVAR_FILE_TYPE_MAP        sync.Map
 	GVAR_ID_GENERATOR         *sonyflake.Sonyflake
 	GVAR_AUTO_CREATE_DB       bool            = true                    //是否自动生成数据库

@@ -1,8 +1,6 @@
 package main
 
-import (
-	"github.com/goldenBill/douyin-fighting/initialize"
-)
+import "github.com/goldenBill/douyin-fighting/initialize"
 
 func main() {
 	initialize.Global() //初始化全局变量

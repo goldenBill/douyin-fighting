@@ -34,7 +34,10 @@ func Feed(c *gin.Context) {
 	}
 	var videoList []dao.Video
 	var authorList []dao.User
-	numVideos, err := service.GetFeedVideosAndAuthors(&videoList, &authorList, LatestTime, global.GVAR_FEED_NUM)
+
+	//service.GetFeedVideosAndAuthorsRedis(&videoList, &authorList, LatestTime, global.GVAR_FEED_NUM)
+
+	numVideos, err := service.GetFeedVideosAndAuthorsRedis(&videoList, &authorList, LatestTime, global.GVAR_FEED_NUM)
 
 	if err != nil {
 		//访问数据库出错

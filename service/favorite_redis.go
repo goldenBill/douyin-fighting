@@ -17,15 +17,15 @@ func DeleteFavoriteFromCache(videoID, userID, authorID uint64) error {
 	// 删除缓存
 	txf := func(tx *redis.Tx) error {
 		// Operation is commited only if the watched keys remain unchanged.
-		_, err := tx.TxPipelined(CTX, func(pipe redis.Pipeliner) error {
+		_, err := tx.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
 			// 删除点赞关系
-			pipe.Del(CTX, userFavoriteRedis)
+			pipe.Del(global.GVAR_CONTEXT, userFavoriteRedis)
 
 			//删除redis video相关
 			/* Add your code here*/
 
 			//删除redis user相关
-			pipe.Del(CTX, userRedis, authorRedis)
+			pipe.Del(global.GVAR_CONTEXT, userRedis, authorRedis)
 			return nil
 		})
 		return err
@@ -39,11 +39,11 @@ func GetFavoriteListByUserIDFromCache(userID uint64) ([]uint64, error) {
 	//定义 key
 	userFavoriteRedis := fmt.Sprintf(UserFavoritePattern, userID)
 
-	if result := global.GVAR_REDIS.Exists(CTX, userFavoriteRedis).Val(); result <= 0 {
+	if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, userFavoriteRedis).Val(); result <= 0 {
 		return nil, errors.New("Not found in cache")
 	}
-	videoIDStrList := global.GVAR_REDIS.SMembers(CTX, userFavoriteRedis).Val()
-	global.GVAR_REDIS.Expire(CTX, userFavoriteRedis, global.FAVORITE_EXPIRE)
+	videoIDStrList := global.GVAR_REDIS.SMembers(global.GVAR_CONTEXT, userFavoriteRedis).Val()
+	global.GVAR_REDIS.Expire(global.GVAR_CONTEXT, userFavoriteRedis, global.FAVORITE_EXPIRE)
 	videoIDList := make([]uint64, 0, len(videoIDStrList))
 	for i := 0; i < len(videoIDStrList); i++ {
 		if videoIDStrList[i] == HEADER {
@@ -65,17 +65,17 @@ func AddFavoriteListByUserIDInCache(userID uint64, videoIDList []uint64) error {
 	// Transactional function.
 	txf := func(tx *redis.Tx) error {
 		// Operation is commited only if the watched keys remain unchanged.
-		_, err := tx.TxPipelined(CTX, func(pipe redis.Pipeliner) error {
+		_, err := tx.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
 			// 初始化
-			pipe.SAdd(CTX, userFavoriteRedis, HEADER)
+			pipe.SAdd(global.GVAR_CONTEXT, userFavoriteRedis, HEADER)
 
 			// 增加点赞关系
 			for _, each := range videoIDList {
-				pipe.SAdd(CTX, userFavoriteRedis, each)
+				pipe.SAdd(global.GVAR_CONTEXT, userFavoriteRedis, each)
 			}
 
 			//设置过期时间
-			pipe.Expire(CTX, userFavoriteRedis, global.FAVORITE_EXPIRE)
+			pipe.Expire(global.GVAR_CONTEXT, userFavoriteRedis, global.FAVORITE_EXPIRE)
 			return nil
 		})
 		return err
