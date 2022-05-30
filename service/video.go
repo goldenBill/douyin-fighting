@@ -6,34 +6,52 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
-	"gorm.io/gorm"
 	"strconv"
 	"time"
 )
 
-// GetFeedVideosAndAuthors 按要求拉取feed视频和其作者
-func GetFeedVideosAndAuthors(videos *[]dao.Video, authors *[]dao.User, LatestTime int64, MaxNumVideo int) (int64, error) {
-	result := global.GVAR_DB.Where("created_at < ?", time.UnixMilli(LatestTime)).Order("created_at DESC").Limit(MaxNumVideo).Find(videos)
-	if result.Error != nil {
-		// 访问数据库出错
-		return 0, result.Error
-	} else if result.RowsAffected == 0 {
-		// 没有满足条件的视频
-		return 0, nil
-	} else {
-		// 成功
-		authorIDList := make([]uint64, result.RowsAffected)
-		for i, video := range *videos {
-			authorIDList[i] = video.AuthorID
+func CheckCommentsOfVideo(videoID uint64) error {
+	// 确保 KeycommentsOfVideo存在
+	videoIDStr := strconv.FormatUint(videoID, 10)
+	keyCommentsOfVideo := "CommentsOfVideo:" + videoIDStr
+	n, err := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, keyCommentsOfVideo).Result()
+	if err != nil {
+		return err
+	} else if n <= 0 {
+		// KeyCommentsOfVideo 不存在
+		var commentList []dao.Comment
+		result := global.GVAR_DB.Where("video_id = ?", videoID).Find(&commentList)
+		if result.Error != nil || result.RowsAffected == 0 {
+			return errors.New("DeleteComment fail")
 		}
-
-		err := GetUserListByUserIDs(authorIDList, authors)
-		if err != nil {
-			return 0, err
-		} else {
-			return result.RowsAffected, nil
+		// 翻转 commentList: 最近的评论放在前面
+		numComments := int(result.RowsAffected)
+		for i, j := 0, numComments-1; i < j; i, j = i+1, j-1 {
+			commentList[i], commentList[j] = commentList[j], commentList[i]
 		}
+		err = GoCommentsOfVideo(commentList, keyCommentsOfVideo)
 	}
+	return err
+}
+
+func CheckVideo(videoID uint64) error {
+	videoIDStr := strconv.FormatUint(videoID, 10)
+	keyVideo := "Video:" + videoIDStr
+	n, err := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, keyVideo).Result()
+	if err != nil {
+		return err
+	}
+	if n <= 0 {
+		// "video_id"不存在
+		var video dao.Video
+		result := global.GVAR_DB.Where("video_id = ?", videoID).Limit(1).Find(&video)
+		if result.Error != nil || result.RowsAffected == 0 {
+			return errors.New("Redis出错或videoID不存在")
+		}
+		// 写redis Video:videoID
+		err = GoVideo(video)
+	}
+	return err
 }
 
 func GoFeed(allVideos []dao.Video) error {
@@ -51,18 +69,24 @@ func GoVideo(video dao.Video) error {
 	return err
 }
 
-func GoPublish(videoIDList []string, userID uint64) error {
+func GoPublish(videoList []dao.Video, userID uint64) error {
 	keyPublish := "Publish:" + strconv.FormatUint(userID, 10)
-	err := global.GVAR_REDIS.LPush(global.GVAR_CONTEXT, keyPublish, videoIDList).Err()
-	return err
+	var listZ = make([]*redis.Z, 0, len(videoList))
+	for _, video := range videoList {
+		listZ = append(listZ, &redis.Z{float64(video.CreatedAt.UnixMilli()) / 1000, video.VideoID})
+	}
+	return global.GVAR_REDIS.ZAdd(global.GVAR_CONTEXT, keyPublish, listZ...).Err()
 }
 
-func GoCommentsOfVideo(commentIDList []string, videoID uint64) error {
-	keyCommentsOfVideo := "CommentsOfVideo:" + strconv.FormatUint(videoID, 10)
-	err := global.GVAR_REDIS.LPush(global.GVAR_CONTEXT, keyCommentsOfVideo, commentIDList).Err()
-	return err
+func GoCommentsOfVideo(commentList []dao.Comment, keyCommentsOfVideo string) error {
+	var listZ = make([]*redis.Z, 0, len(commentList))
+	for _, comment := range commentList {
+		listZ = append(listZ, &redis.Z{float64(comment.CreatedAt.UnixMilli()) / 1000, comment.CommentID})
+	}
+	return global.GVAR_REDIS.ZAdd(global.GVAR_CONTEXT, keyCommentsOfVideo, listZ...).Err()
 }
 
+// 返回视频数
 func GetFeedVideosAndAuthorsRedis(videoList *[]dao.Video, authors *[]dao.User, LatestTime int64, MaxNumVideo int) (int64, error) {
 	n, err := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, "feed").Result()
 	if err != nil {
@@ -96,16 +120,23 @@ func GetFeedVideosAndAuthorsRedis(videoList *[]dao.Video, authors *[]dao.User, L
 	*videoList = make([]dao.Video, 0, len(vals))
 	authorIDList := make([]uint64, 0, len(vals))
 
-	for _, video_id := range vals {
+	for _, videoIDStr := range vals {
+		videoID, err := strconv.ParseUint(videoIDStr, 10, 64)
+		if err != nil {
+			continue
+		}
+		keyVideo := "Video:" + videoIDStr
 		var video dao.Video
-		n, err = global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, "Video:"+video_id).Result()
+		n, err = global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, keyVideo).Result()
 		if err != nil {
 			return 0, err
 		}
 		if n <= 0 {
 			// "video_id"不存在
-			result := global.GVAR_DB.Where("video_id = ?", video_id).Limit(1).Find(&video)
-			err = GoVideo(video)
+			result := global.GVAR_DB.Where("video_id = ?", videoID).Limit(1).Find(&video)
+			if err = GoVideo(video); err != nil {
+				return 0, err
+			}
 			if result.Error != nil || result.RowsAffected == 0 {
 				return 0, errors.New("Get video fail")
 			} else {
@@ -114,14 +145,14 @@ func GetFeedVideosAndAuthorsRedis(videoList *[]dao.Video, authors *[]dao.User, L
 			}
 			continue
 		}
-		if err = global.GVAR_REDIS.HGetAll(global.GVAR_CONTEXT, "Video:"+video_id).Scan(&video); err != nil {
+		if err = global.GVAR_REDIS.HGetAll(global.GVAR_CONTEXT, keyVideo).Scan(&video); err != nil {
 			return 0, err
 		} else {
-			video.VideoID, err = strconv.ParseUint(video_id, 10, 64)
+			video.VideoID = videoID
 			if err != nil {
 				continue
 			}
-			timeUnixMilliStr, err := global.GVAR_REDIS.HGet(global.GVAR_CONTEXT, "Video:"+video_id, "created_at").Result()
+			timeUnixMilliStr, err := global.GVAR_REDIS.HGet(global.GVAR_CONTEXT, keyVideo, "created_at").Result()
 			if err != nil {
 				continue
 			}
@@ -159,19 +190,20 @@ func PublishVideo(userID uint64, videoID uint64, videoName string, coverName str
 }
 
 func PublishVideoRedis(userID uint64, videoID uint64, videoName string, coverName string, title string) error {
-	key := fmt.Sprintf("Publish:%d", userID)
-	err := global.GVAR_REDIS.LPush(global.GVAR_CONTEXT, key, videoID).Err()
-	if err != nil {
+	keyPublish := fmt.Sprintf("Publish:%d", userID)
+	videoIDStr := strconv.FormatUint(videoID, 10)
+	Z := redis.Z{float64(time.Now().Unix()), videoIDStr}
+	if err := global.GVAR_REDIS.ZAdd(global.GVAR_CONTEXT, keyPublish, &Z).Err(); err != nil {
 		return err
 	}
-	key = fmt.Sprintf("Video:%d", videoID)
-	if err = global.GVAR_REDIS.HSet(global.GVAR_CONTEXT, key, "author_id", userID, "play_name", videoName, "cover_name", coverName,
+	keyVideo := fmt.Sprintf("Video:%d", videoID)
+	if err := global.GVAR_REDIS.HSet(global.GVAR_CONTEXT, keyVideo, "author_id", userID, "play_name", videoName, "cover_name", coverName,
 		"favorite_count", 0, "comment_count", 0, "title", title, "created_at", time.Now().UnixMilli()).Err(); err != nil {
 		return err
 	}
 
-	Z := redis.Z{float64(time.Now().UnixMilli()) / 1000, videoID}
-	err = global.GVAR_REDIS.ZAdd(global.GVAR_CONTEXT, "feed", &Z).Err()
+	Z = redis.Z{float64(time.Now().UnixMilli()) / 1000, videoID}
+	err := global.GVAR_REDIS.ZAdd(global.GVAR_CONTEXT, "feed", &Z).Err()
 	return err
 }
 
@@ -191,12 +223,15 @@ func GetPublishedVideosAndAuthorsRedis(videoList *[]dao.Video, authors *[]dao.Us
 			return 0, nil
 		} else {
 			// 成功
-			var videoIDList = make([]string, len(*videoList))
-			for i, video := range *videoList {
-				videoIDList[i] = strconv.FormatUint(video.VideoID, 10)
+			// 翻转
+			numVideos := int(result.RowsAffected)
+			for i, j := 0, numVideos-1; i < j; i, j = i+1, j-1 {
+				(*videoList)[i], (*videoList)[j] = (*videoList)[j], (*videoList)[i]
 			}
-			GoPublish(videoIDList, userID)
-			authorIDList := make([]uint64, result.RowsAffected)
+			if err = GoPublish(*videoList, userID); err != nil {
+				return 0, err
+			}
+			authorIDList := make([]uint64, numVideos)
 			for i, video := range *videoList {
 				authorIDList[i] = video.AuthorID
 			}
@@ -208,7 +243,7 @@ func GetPublishedVideosAndAuthorsRedis(videoList *[]dao.Video, authors *[]dao.Us
 			}
 		}
 	} else {
-		vals, err := global.GVAR_REDIS.LRange(global.GVAR_CONTEXT, keyPublish, 0, -1).Result()
+		vals, err := global.GVAR_REDIS.ZRevRange(global.GVAR_CONTEXT, keyPublish, 0, -1).Result()
 		if err != nil {
 			return 0, err
 		}
@@ -224,7 +259,9 @@ func GetPublishedVideosAndAuthorsRedis(videoList *[]dao.Video, authors *[]dao.Us
 			if n <= 0 {
 				// "video_id"不存在
 				result := global.GVAR_DB.Where("video_id = ?", video_id).Limit(1).Find(&video)
-				err = GoVideo(video)
+				if err = GoVideo(video); err != nil {
+					return 0, err
+				}
 				if result.Error != nil || result.RowsAffected == 0 {
 					return 0, errors.New("Get video fail")
 				} else {
@@ -262,84 +299,42 @@ func GetPublishedVideosAndAuthorsRedis(videoList *[]dao.Video, authors *[]dao.Us
 	}
 }
 
-// GetPublishedVideosAndAuthors 按要求拉取feed视频和其作者
-func GetPublishedVideosAndAuthors(videos *[]dao.Video, authors *[]dao.User, userID uint64) (int64, error) {
-	result := global.GVAR_DB.Where("author_id = ?", userID).Find(videos)
-	if result.Error != nil {
-		// 访问数据库出错
-		return 0, result.Error
-	} else if result.RowsAffected == 0 {
-		// 没有满足条件的视频
-		return 0, nil
-	} else {
-		// 成功
-		authorIDList := make([]uint64, result.RowsAffected)
-		for i, video := range *videos {
-			authorIDList[i] = video.AuthorID
-		}
-		err := GetUserListByUserIDs(authorIDList, authors)
-		if err != nil {
-			return 0, err
-		} else {
-			return result.RowsAffected, nil
-		}
-	}
-}
-
-// GetPublishedVideos 给定用户ID得到其发表过的视频
-func GetPublishedVideos(videos *[]dao.Video, userID uint64) error {
-	err := global.GVAR_DB.Where("author_id = ?", userID).Find(videos).Error
-	return err
-}
-
 // GetVideoListByIDs 给定视频ID列表得到对应的视频信息
-func GetVideoListByIDs(videoList *[]dao.Video, videoIDs []uint64) error {
-	var uniqueVideoList []dao.Video
-	result := global.GVAR_DB.Where("video_id in ?", videoIDs).Find(&uniqueVideoList)
-
-	if result.Error != nil {
-		return errors.New("query GetVideoListByIDs error")
-	}
-	// 针对查询结果建立映射关系
-	mapVideoIDToVideo := make(map[uint64]dao.Video)
-	*videoList = make([]dao.Video, len(videoIDs))
-	for idx, video := range uniqueVideoList {
-		mapVideoIDToVideo[video.VideoID] = uniqueVideoList[idx]
-	}
-	// 构造返回值
-	for idx, videoID := range videoIDs {
-		(*videoList)[idx] = mapVideoIDToVideo[videoID]
+func GetVideoListByIDsRedis(videoList *[]dao.Video, videoIDs []uint64) error {
+	*videoList = make([]dao.Video, 0, len(videoIDs))
+	for _, videoID := range videoIDs {
+		var video dao.Video
+		keyVideo := "Video:" + strconv.FormatUint(videoID, 10)
+		n, err := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, keyVideo).Result()
+		if err != nil {
+			return err
+		}
+		if n <= 0 {
+			result := global.GVAR_DB.Where("video_id = ?", videoID).Limit(1).Find(&video)
+			if result.Error != nil || result.RowsAffected == 0 {
+				return errors.New("GetVideoListByIDsRedis fail")
+			}
+			if err = GoVideo(video); err != nil {
+				return err
+			}
+			*videoList = append(*videoList, video)
+		} else {
+			if err = global.GVAR_REDIS.HGetAll(global.GVAR_CONTEXT, keyVideo).Scan(&video); err != nil {
+				return errors.New("GetVideoListByIDsRedis fail")
+			} else {
+				video.VideoID = videoID
+				timeUnixMilliStr, err := global.GVAR_REDIS.HGet(global.GVAR_CONTEXT, "Video:"+strconv.FormatUint(videoID, 10), "created_at").Result()
+				if err != nil {
+					continue
+				}
+				timeUnixMilli, err := strconv.ParseInt(timeUnixMilliStr, 10, 64)
+				if err != nil {
+					continue
+				}
+				video.CreatedAt = time.UnixMilli(timeUnixMilli)
+				*videoList = append(*videoList, video)
+			}
+		}
 	}
 	return nil
-}
-
-// FavoriteCountPlus 点赞数加1
-func FavoriteCountPlus(videoID uint64) error {
-	err := global.GVAR_DB.Model(&dao.Video{}).Where("video_id = ?", videoID).Update("favorite_count", gorm.Expr("favorite_count + 1")).Error
-	return err
-}
-
-// FavoriteCountMinus 点赞数减1
-func FavoriteCountMinus(videoID uint64) error {
-	err := global.GVAR_DB.Model(&dao.Video{}).Where("video_id = ?", videoID).Update("favorite_count", gorm.Expr("favorite_count - 1")).Error
-	return err
-}
-
-// CommentCountPlus 评论数加1
-func CommentCountPlus(videoID uint64) error {
-	err := global.GVAR_DB.Model(&dao.Video{}).Where("video_id = ?", videoID).Update("comment_count", gorm.Expr("comment_count + 1")).Error
-	return err
-}
-
-// CommentCountMinus 评论数减1
-func CommentCountMinus(videoID uint64) error {
-	err := global.GVAR_DB.Model(&dao.Video{}).Where("video_id = ?", videoID).Update("comment_count", gorm.Expr("comment_count - 1")).Error
-	return err
-}
-
-// 判断当前videoID是否存在
-func IsVideoExist(videoID uint64) bool {
-	var count int64
-	global.GVAR_DB.Model(&dao.Video{}).Where("video_id = ?", videoID).Count(&count)
-	return count != 0
 }

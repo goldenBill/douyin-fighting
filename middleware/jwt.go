@@ -3,7 +3,6 @@ package middleware
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/goldenBill/douyin-fighting/controller"
-	"github.com/goldenBill/douyin-fighting/service"
 	"github.com/goldenBill/douyin-fighting/util"
 	"net/http"
 )
@@ -28,11 +27,7 @@ func JWT() gin.HandlerFunc {
 			return
 		}
 		userID := claims.UserID
-		if !service.IsUserIDExist(userID) {
-			c.JSON(http.StatusForbidden, controller.Response{StatusCode: 1, StatusMsg: "User doesn't exist"})
-			c.Abort()
-			return
-		}
+
 		// 保存userID到Context的key中，可以通过Get()取
 		c.Set("UserID", userID)
 

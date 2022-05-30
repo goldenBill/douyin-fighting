@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func InitMySQL() {
+func MySQL() {
 
 	username := "root"          //账号
 	password := "Zxy13525812.." //密码

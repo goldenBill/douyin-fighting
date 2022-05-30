@@ -40,60 +40,90 @@ func Login(username string, password string) (user *dao.User, err error) {
 
 // UserInfoByUserID 通过 UserID 获取用户信息
 func UserInfoByUserID(userID uint64) (user *dao.User, err error) {
+	//查询redis
+	user, err = GetUserInfoByUserIDFromCache(userID)
+	if err == nil {
+		return
+	} else if err.Error() != "Not found in cache" {
+		return nil, err
+	}
 	//检查 userID 是否存在；若存在，获取用户信息
 	result := global.GVAR_DB.Where("user_id = ?", userID).Limit(1).Find(&user)
 	if result.RowsAffected == 0 {
 		err = errors.New("username does not exist")
 		return
 	}
+	//更新 redis
+	if err = AddUserInfoByUserIDFromCacheInCache(user); err != nil {
+		return nil, err
+	}
 	return
-}
 
-// IsUserIDExist 判断 userID 是否有效
-func IsUserIDExist(userID uint64) bool {
-	var count int64
-	global.GVAR_DB.Model(&dao.User{}).Where("user_id = ?", userID).Count(&count)
-	return count != 0
 }
 
 // GetUserListByUserIDList 根据 UserIDList 获取对应的用户列表
-func GetUserListByUserIDList(UserIDList []uint64) (userList []dao.User, err error) {
+func GetUserListByUserIDList(UserIDList []uint64) ([]dao.User, error) {
+	//查询redis
+	userList, notInCache, err := GetUserListByUserIDListFromCache(UserIDList)
+	if err != nil && err.Error() != "Not found in cache" {
+		return nil, err
+	} else if err == nil {
+		return userList, nil
+	}
 	var uniqueUserList []dao.User
-	result := global.GVAR_DB.Where("user_id in ?", UserIDList).Find(&uniqueUserList)
+	result := global.GVAR_DB.Where("user_id in ?", notInCache).Find(&uniqueUserList)
 	if result.Error != nil {
-		err = errors.New("query GetUserListByUserIDList error")
-		return
+		return nil, result.Error
 	}
 	// 针对查询结果建立映射关系
-	mapUserIDToUser := make(map[uint64]*dao.User, len(uniqueUserList))
+	mapUserIDToUser := make(map[uint64]dao.User, len(uniqueUserList))
 	for idx, user := range uniqueUserList {
-		mapUserIDToUser[user.UserID] = &uniqueUserList[idx]
+		mapUserIDToUser[user.UserID] = uniqueUserList[idx]
 	}
-	// 构造返回值
-	userList = make([]dao.User, len(UserIDList))
-	for idx, userID := range UserIDList {
-		userList[idx] = *mapUserIDToUser[userID]
+	//更新 redis
+	if err = AddUserListByUserIDListsFromCacheInCache(uniqueUserList); err != nil {
+		return nil, err
 	}
-	return
+	//后续操作
+	for idx, each := range userList {
+		if user, ok := mapUserIDToUser[each.UserID]; ok {
+			userList[idx] = user
+		}
+	}
+	return userList, nil
 }
 
 // GetUserListByUserIDs 根据UserIDs获取对应的用户列表
 func GetUserListByUserIDs(UserIDs []uint64, userList *[]dao.User) (err error) {
-	var uniqueUserList []dao.User
-	result := global.GVAR_DB.Where("user_id in ?", UserIDs).Find(&uniqueUserList)
-	if result.Error != nil {
-		err = errors.New("query GetUserListByUserIDs error")
-		return
-	}
-	// 针对查询结果建立映射关系
-	mapUserIDToUser := make(map[uint64]dao.User)
-	*userList = make([]dao.User, len(UserIDs))
-	for idx, user := range uniqueUserList {
-		mapUserIDToUser[user.UserID] = uniqueUserList[idx]
-	}
-	// 构造返回值
-	for idx, userID := range UserIDs {
-		(*userList)[idx] = mapUserIDToUser[userID]
-	}
+	userListPrototype, err := GetUserListByUserIDList(UserIDs)
+	*userList = userListPrototype
 	return
 }
+
+//// GetUserListByUserIDs 根据UserIDs获取对应的用户列表
+//func GetUserListByUserIDs(UserIDs []uint64, userList *[]dao.User) (err error) {
+//	var uniqueUserList []dao.User
+//	result := global.GVAR_DB.Where("user_id in ?", UserIDs).Find(&uniqueUserList)
+//	if result.Error != nil {
+//		err = errors.New("query GetUserListByUserIDs error")
+//		return
+//	}
+//	// 针对查询结果建立映射关系
+//	mapUserIDToUser := make(map[uint64]dao.User)
+//	*userList = make([]dao.User, len(UserIDs))
+//	for idx, user := range uniqueUserList {
+//		mapUserIDToUser[user.UserID] = uniqueUserList[idx]
+//	}
+//	// 构造返回值
+//	for idx, userID := range UserIDs {
+//		(*userList)[idx] = mapUserIDToUser[userID]
+//	}
+//	return
+//}
+
+//// IsUserIDExist 判断 userID 是否有效
+//func IsUserIDExist(userID uint64) bool {
+//	var count int64
+//	global.GVAR_DB.Model(&dao.User{}).Where("user_id = ?", userID).Count(&count)
+//	return count != 0
+//}

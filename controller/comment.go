@@ -68,7 +68,19 @@ func CommentAction(c *gin.Context) {
 			return
 		}
 		// 添加评论
-		commentDao, err := service.AddCommentRedis(r.UserID, r.VideoID, r.CommentText)
+		commentID, err := global.GVAR_ID_GENERATOR.NextID()
+		if err != nil {
+			// 生成ID失败
+			c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "生成评论ID失败"})
+			return
+		}
+		commentDao := dao.Comment{
+			CommentID: commentID,
+			VideoID:   r.VideoID,
+			UserID:    r.UserID,
+			Content:   r.CommentText,
+		}
+		err = service.AddCommentRedis(&commentDao)
 		if err != nil {
 			// 评论失败
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
@@ -101,7 +113,7 @@ func CommentAction(c *gin.Context) {
 					IsFollow:       isFollow,
 				},
 				Content:    commentDao.Content,
-				CreateDate: commentDao.CreatedAt.Format("01-02"),
+				CreateDate: commentDao.CreatedAt.Format("2006-01-02 15:04:05 Monday"),
 			},
 		})
 	} else {
@@ -148,10 +160,7 @@ func CommentList(c *gin.Context) {
 		if err == nil {
 			// token合法
 			userID = claims.UserID
-			if service.IsUserIDExist(userID) {
-				// 用户存在
-				isLogged = true
-			}
+			isLogged = true
 		}
 	}
 
