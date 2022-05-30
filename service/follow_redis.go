@@ -16,11 +16,11 @@ func DeleteFollowFromCache(followerID, celebrityID uint64) error {
 	celebrityRedis := fmt.Sprintf(UserPattern, celebrityID)
 
 	// 删除缓存
-	_, err := global.GVAR_REDIS.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
+	_, err := global.REDIS.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
 		// 删除关注关系
-		pipe.Del(global.GVAR_CONTEXT, followerRelationRedis, celebrityRelationRedis)
+		pipe.Del(global.CONTEXT, followerRelationRedis, celebrityRelationRedis)
 		//删除redis user相关
-		pipe.Del(global.GVAR_CONTEXT, followerRedis, celebrityRedis)
+		pipe.Del(global.CONTEXT, followerRedis, celebrityRedis)
 		return nil
 	})
 	return err
@@ -40,20 +40,20 @@ func UpdateFollowActionFromCache(followerID, celebrityID uint64) error {
 	// 更新 followerRelationRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, followerRelationRedis).Val(); result <= 0 {
+			if result := global.REDIS.Exists(global.CONTEXT, followerRelationRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.SAdd(global.GVAR_CONTEXT, followerRelationRedis, celebrityID)
-				pipe.Expire(global.GVAR_CONTEXT, followerRelationRedis, global.FOLLOW_EXPIRE)
+			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
+				pipe.SAdd(global.CONTEXT, followerRelationRedis, celebrityID)
+				pipe.Expire(global.CONTEXT, followerRelationRedis, global.FOLLOW_EXPIRE)
 				return nil
 			})
 			return err
 		}
 		err := Retry(txf, followerRelationRedis)
 		if err != nil {
-			err = global.GVAR_REDIS.Del(global.GVAR_CONTEXT, followerRelationRedis).Err()
+			err = global.REDIS.Del(global.CONTEXT, followerRelationRedis).Err()
 		}
 		ch <- err
 	}()
@@ -61,20 +61,20 @@ func UpdateFollowActionFromCache(followerID, celebrityID uint64) error {
 	// 更新 celebrityRelationRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, celebrityRelationRedis).Val(); result <= 0 {
+			if result := global.REDIS.Exists(global.CONTEXT, celebrityRelationRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.SAdd(global.GVAR_CONTEXT, celebrityRelationRedis, followerID)
-				pipe.Expire(global.GVAR_CONTEXT, celebrityRelationRedis, global.FOLLOW_EXPIRE)
+			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
+				pipe.SAdd(global.CONTEXT, celebrityRelationRedis, followerID)
+				pipe.Expire(global.CONTEXT, celebrityRelationRedis, global.FOLLOW_EXPIRE)
 				return nil
 			})
 			return err
 		}
 		err := Retry(txf, celebrityRelationRedis)
 		if err != nil {
-			err = global.GVAR_REDIS.Del(global.GVAR_CONTEXT, celebrityRelationRedis).Err()
+			err = global.REDIS.Del(global.CONTEXT, celebrityRelationRedis).Err()
 		}
 		ch <- err
 	}()
@@ -82,20 +82,20 @@ func UpdateFollowActionFromCache(followerID, celebrityID uint64) error {
 	// 更新 followerRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, followerRedis).Val(); result <= 0 {
+			if result := global.REDIS.Exists(global.CONTEXT, followerRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.HIncrBy(global.GVAR_CONTEXT, followerRedis, "follow_count", 1)
-				pipe.Expire(global.GVAR_CONTEXT, followerRedis, global.USER_INFO_EXPIRE)
+			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
+				pipe.HIncrBy(global.CONTEXT, followerRedis, "follow_count", 1)
+				pipe.Expire(global.CONTEXT, followerRedis, global.USER_INFO_EXPIRE)
 				return nil
 			})
 			return err
 		}
 		err := Retry(txf, followerRedis)
 		if err != nil {
-			err = global.GVAR_REDIS.Del(global.GVAR_CONTEXT, followerRedis).Err()
+			err = global.REDIS.Del(global.CONTEXT, followerRedis).Err()
 		}
 		ch <- err
 	}()
@@ -103,20 +103,20 @@ func UpdateFollowActionFromCache(followerID, celebrityID uint64) error {
 	// 更新 celebrityRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, celebrityRedis).Val(); result <= 0 {
+			if result := global.REDIS.Exists(global.CONTEXT, celebrityRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.HIncrBy(global.GVAR_CONTEXT, celebrityRedis, "follower_count", 1)
-				pipe.Expire(global.GVAR_CONTEXT, celebrityRedis, global.USER_INFO_EXPIRE)
+			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
+				pipe.HIncrBy(global.CONTEXT, celebrityRedis, "follower_count", 1)
+				pipe.Expire(global.CONTEXT, celebrityRedis, global.USER_INFO_EXPIRE)
 				return nil
 			})
 			return err
 		}
 		err := Retry(txf, celebrityRedis)
 		if err != nil {
-			err = global.GVAR_REDIS.Del(global.GVAR_CONTEXT, celebrityRedis).Err()
+			err = global.REDIS.Del(global.CONTEXT, celebrityRedis).Err()
 		}
 		ch <- err
 	}()
@@ -144,20 +144,20 @@ func UpdateCancelFollowFromCache(followerID, celebrityID uint64) error {
 	// 更新 followerRelationRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, followerRelationRedis).Val(); result <= 0 {
+			if result := global.REDIS.Exists(global.CONTEXT, followerRelationRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.SRem(global.GVAR_CONTEXT, followerRelationRedis, celebrityID)
-				pipe.Expire(global.GVAR_CONTEXT, followerRelationRedis, global.FOLLOW_EXPIRE)
+			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
+				pipe.SRem(global.CONTEXT, followerRelationRedis, celebrityID)
+				pipe.Expire(global.CONTEXT, followerRelationRedis, global.FOLLOW_EXPIRE)
 				return nil
 			})
 			return err
 		}
 		err := Retry(txf, followerRelationRedis)
 		if err != nil {
-			err = global.GVAR_REDIS.Del(global.GVAR_CONTEXT, followerRelationRedis).Err()
+			err = global.REDIS.Del(global.CONTEXT, followerRelationRedis).Err()
 		}
 		ch <- err
 	}()
@@ -165,20 +165,20 @@ func UpdateCancelFollowFromCache(followerID, celebrityID uint64) error {
 	// 更新 celebrityRelationRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, celebrityRelationRedis).Val(); result <= 0 {
+			if result := global.REDIS.Exists(global.CONTEXT, celebrityRelationRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.SRem(global.GVAR_CONTEXT, celebrityRelationRedis, followerID)
-				pipe.Expire(global.GVAR_CONTEXT, celebrityRelationRedis, global.FOLLOW_EXPIRE)
+			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
+				pipe.SRem(global.CONTEXT, celebrityRelationRedis, followerID)
+				pipe.Expire(global.CONTEXT, celebrityRelationRedis, global.FOLLOW_EXPIRE)
 				return nil
 			})
 			return err
 		}
 		err := Retry(txf, celebrityRelationRedis)
 		if err != nil {
-			err = global.GVAR_REDIS.Del(global.GVAR_CONTEXT, celebrityRelationRedis).Err()
+			err = global.REDIS.Del(global.CONTEXT, celebrityRelationRedis).Err()
 		}
 		ch <- err
 	}()
@@ -186,20 +186,20 @@ func UpdateCancelFollowFromCache(followerID, celebrityID uint64) error {
 	// 更新 followerRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, followerRedis).Val(); result <= 0 {
+			if result := global.REDIS.Exists(global.CONTEXT, followerRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.HIncrBy(global.GVAR_CONTEXT, followerRedis, "follow_count", -1)
-				pipe.Expire(global.GVAR_CONTEXT, followerRedis, global.USER_INFO_EXPIRE)
+			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
+				pipe.HIncrBy(global.CONTEXT, followerRedis, "follow_count", -1)
+				pipe.Expire(global.CONTEXT, followerRedis, global.USER_INFO_EXPIRE)
 				return nil
 			})
 			return err
 		}
 		err := Retry(txf, followerRedis)
 		if err != nil {
-			err = global.GVAR_REDIS.Del(global.GVAR_CONTEXT, followerRedis).Err()
+			err = global.REDIS.Del(global.CONTEXT, followerRedis).Err()
 		}
 		ch <- err
 	}()
@@ -207,20 +207,20 @@ func UpdateCancelFollowFromCache(followerID, celebrityID uint64) error {
 	// 更新 celebrityRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, celebrityRedis).Val(); result <= 0 {
+			if result := global.REDIS.Exists(global.CONTEXT, celebrityRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.HIncrBy(global.GVAR_CONTEXT, celebrityRedis, "follower_count", -1)
-				pipe.Expire(global.GVAR_CONTEXT, celebrityRedis, global.USER_INFO_EXPIRE)
+			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
+				pipe.HIncrBy(global.CONTEXT, celebrityRedis, "follower_count", -1)
+				pipe.Expire(global.CONTEXT, celebrityRedis, global.USER_INFO_EXPIRE)
 				return nil
 			})
 			return err
 		}
 		err := Retry(txf, celebrityRedis)
 		if err != nil {
-			err = global.GVAR_REDIS.Del(global.GVAR_CONTEXT, celebrityRedis).Err()
+			err = global.REDIS.Del(global.CONTEXT, celebrityRedis).Err()
 		}
 		ch <- err
 	}()
@@ -238,13 +238,13 @@ func GetFollowIDListByUserIDFromCache(followerID uint64) ([]uint64, error) {
 	//定义 key
 	followerRelationRedis := fmt.Sprintf(FollowerPattern, followerID)
 
-	if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, followerRelationRedis).Val(); result <= 0 {
+	if result := global.REDIS.Exists(global.CONTEXT, followerRelationRedis).Val(); result <= 0 {
 		return nil, errors.New("Not found in cache")
 	}
 	// Transactional function.
-	cmds, err := global.GVAR_REDIS.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-		pipe.SMembers(global.GVAR_CONTEXT, followerRelationRedis).Val()
-		pipe.Expire(global.GVAR_CONTEXT, followerRelationRedis, global.FOLLOW_EXPIRE)
+	cmds, err := global.REDIS.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
+		pipe.SMembers(global.CONTEXT, followerRelationRedis).Val()
+		pipe.Expire(global.CONTEXT, followerRelationRedis, global.FOLLOW_EXPIRE)
 		return nil
 	})
 	if err != nil {
@@ -270,15 +270,15 @@ func AddFollowIDListByUserIDInCache(followerID uint64, celebrityIDList []uint64)
 	followerRelationRedis := fmt.Sprintf(FollowerPattern, followerID)
 
 	// Transactional function.
-	_, err := global.GVAR_REDIS.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
+	_, err := global.REDIS.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
 		// 初始化
-		pipe.SAdd(global.GVAR_CONTEXT, followerRelationRedis, HEADER)
+		pipe.SAdd(global.CONTEXT, followerRelationRedis, HEADER)
 		// 增加点赞关系
 		for _, each := range celebrityIDList {
-			pipe.SAdd(global.GVAR_CONTEXT, followerRelationRedis, each)
+			pipe.SAdd(global.CONTEXT, followerRelationRedis, each)
 		}
 		//设置过期时间
-		pipe.Expire(global.GVAR_CONTEXT, followerRelationRedis, global.FOLLOW_EXPIRE)
+		pipe.Expire(global.CONTEXT, followerRelationRedis, global.FOLLOW_EXPIRE)
 		return nil
 	})
 	return err
@@ -288,13 +288,13 @@ func GetFollowerIDListByUserIDFromCache(celebrityID uint64) ([]uint64, error) {
 	//定义 key
 	celebrityRelationRedis := fmt.Sprintf(CelebrityPattern, celebrityID)
 
-	if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, celebrityRelationRedis).Val(); result <= 0 {
+	if result := global.REDIS.Exists(global.CONTEXT, celebrityRelationRedis).Val(); result <= 0 {
 		return nil, errors.New("Not found in cache")
 	}
 	// Transactional function.
-	cmds, err := global.GVAR_REDIS.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-		pipe.SMembers(global.GVAR_CONTEXT, celebrityRelationRedis).Val()
-		pipe.Expire(global.GVAR_CONTEXT, celebrityRelationRedis, global.FOLLOW_EXPIRE)
+	cmds, err := global.REDIS.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
+		pipe.SMembers(global.CONTEXT, celebrityRelationRedis).Val()
+		pipe.Expire(global.CONTEXT, celebrityRelationRedis, global.FOLLOW_EXPIRE)
 		return nil
 	})
 	if err != nil {
@@ -320,15 +320,15 @@ func AddFollowerIDListByUserIDInCache(celebrityID uint64, followerIDList []uint6
 	celebrityRelationRedis := fmt.Sprintf(CelebrityPattern, celebrityID)
 
 	// Transactional function.
-	_, err := global.GVAR_REDIS.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
+	_, err := global.REDIS.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
 		// 初始化
-		pipe.SAdd(global.GVAR_CONTEXT, celebrityRelationRedis, HEADER)
+		pipe.SAdd(global.CONTEXT, celebrityRelationRedis, HEADER)
 		// 增加点赞关系
 		for _, each := range followerIDList {
-			pipe.SAdd(global.GVAR_CONTEXT, celebrityRelationRedis, each)
+			pipe.SAdd(global.CONTEXT, celebrityRelationRedis, each)
 		}
 		//设置过期时间
-		pipe.Expire(global.GVAR_CONTEXT, celebrityRelationRedis, global.FOLLOW_EXPIRE)
+		pipe.Expire(global.CONTEXT, celebrityRelationRedis, global.FOLLOW_EXPIRE)
 		return nil
 	})
 	return err

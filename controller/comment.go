@@ -43,8 +43,7 @@ type CommentListResponse struct {
 func CommentAction(c *gin.Context) {
 	// 参数绑定
 	var r CommentActionRequest
-	err := c.ShouldBind(&r)
-	if err != nil {
+	if err := c.ShouldBind(&r); err != nil {
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "bind error"})
 		return
 	}
@@ -62,13 +61,13 @@ func CommentAction(c *gin.Context) {
 	// 评论操作
 	if r.ActionType == 1 {
 		// 判断comment是否合法
-		if utf8.RuneCountInString(r.CommentText) > global.GVAR_MAX_COMMENT_LENGTH ||
+		if utf8.RuneCountInString(r.CommentText) > global.MAX_COMMENT_LENGTH ||
 			utf8.RuneCountInString(r.CommentText) <= 0 {
 			c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "非法评论"})
 			return
 		}
 		// 添加评论
-		commentID, err := global.GVAR_ID_GENERATOR.NextID()
+		commentID, err := global.ID_GENERATOR.NextID()
 		if err != nil {
 			// 生成ID失败
 			c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "生成评论ID失败"})
@@ -80,8 +79,7 @@ func CommentAction(c *gin.Context) {
 			UserID:    r.UserID,
 			Content:   r.CommentText,
 		}
-		err = service.AddCommentRedis(&commentDao)
-		if err != nil {
+		if err = service.AddCommentRedis(&commentDao); err != nil {
 			// 评论失败
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
 			return
@@ -116,23 +114,22 @@ func CommentAction(c *gin.Context) {
 				CreateDate: commentDao.CreatedAt.Format("2006-01-02 15:04:05 Monday"),
 			},
 		})
-	} else {
-		// 删除评论
-		err = service.DeleteCommentRedis(r.UserID, r.VideoID, r.CommentID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
-			return
-		}
-		c.JSON(http.StatusOK, Response{StatusCode: 0})
+		return
 	}
+
+	// 删除评论
+	if err := service.DeleteCommentRedis(r.UserID, r.VideoID, r.CommentID); err != nil {
+		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
+		return
+	}
+	c.JSON(http.StatusOK, Response{StatusCode: 0})
 }
 
 // CommentList all videos have same demo comment list
 func CommentList(c *gin.Context) {
 	// 参数绑定
 	var r CommentListRequest
-	err := c.ShouldBind(&r)
-	if err != nil {
+	if err := c.ShouldBind(&r); err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "bind error"})
 		return
 	}
@@ -140,17 +137,16 @@ func CommentList(c *gin.Context) {
 	var commentDaoList []dao.Comment
 	var userDaoList []dao.User
 	// 获取评论列表以及对应的作者
-	if err = service.GetCommentListAndUserListRedis(r.VideoID, &commentDaoList, &userDaoList); err != nil {
+	if err := service.GetCommentListAndUserListRedis(r.VideoID, &commentDaoList, &userDaoList); err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
-
-	//fmt.Println(commentDaoList)
 
 	var (
 		isFollowList []bool
 		isLogged     = false // 用户是否传入了合法有效的token（是否登录）
 		isFollow     bool
+		err          error
 	)
 
 	var userID uint64
@@ -182,20 +178,17 @@ func CommentList(c *gin.Context) {
 		commentJsonList = make([]Comment, 0, len(commentDaoList))
 		commentJson     Comment
 		userJson        User
-		comment         dao.Comment
 		user            dao.User
-		idx             int
 	)
 
-	for idx, comment = range commentDaoList {
+	for i, comment := range commentDaoList {
 		// 未登录时默认为未关注未点赞
+		isFollow = false
 		if isLogged {
 			// 当用户登录时，判断是否关注当前作者
-			isFollow = isFollowList[idx]
-		} else {
-			isFollow = false
+			isFollow = isFollowList[i]
 		}
-		user = userDaoList[idx]
+		user = userDaoList[i]
 		userJson.ID = user.UserID
 		userJson.Name = user.Name
 		userJson.FollowCount = user.FollowCount

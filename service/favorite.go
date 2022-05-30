@@ -9,7 +9,7 @@ import (
 
 // FavoriteAction 用户userID进行点赞视频videoID的操作
 func FavoriteAction(userID, videoID uint64) error {
-	return global.GVAR_DB.Transaction(func(tx *gorm.DB) error {
+	return global.DB.Transaction(func(tx *gorm.DB) error {
 		// 得到结果
 		var favorite dao.Favorite
 		result := tx.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).
@@ -28,7 +28,7 @@ func FavoriteAction(userID, videoID uint64) error {
 			}
 		} else {
 			// 在点赞表中新增一个条目
-			favorite.FavoriteID, _ = global.GVAR_ID_GENERATOR.NextID()
+			favorite.FavoriteID, _ = global.ID_GENERATOR.NextID()
 			favorite.VideoID = videoID
 			favorite.UserID = userID
 			favorite.IsFavorite = true
@@ -69,7 +69,7 @@ func FavoriteAction(userID, videoID uint64) error {
 
 // CancelFavorite 用户userID取消点赞视频videoID
 func CancelFavorite(userID, videoID uint64) error {
-	return global.GVAR_DB.Transaction(func(tx *gorm.DB) error {
+	return global.DB.Transaction(func(tx *gorm.DB) error {
 		// 得到结果
 		var favorite dao.Favorite
 		result := tx.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).
@@ -124,7 +124,7 @@ func GetFavoriteVideoIDListByUserID(userID uint64) ([]uint64, error) {
 	} else {
 		//redis没找到，数据库查询
 		var favoriteList []dao.Favorite
-		result := global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and is_favorite = ?", userID, true).
+		result := global.DB.Model(&dao.Favorite{}).Where("user_id = ? and is_favorite = ?", userID, true).
 			Find(&favoriteList)
 		if result.Error != nil {
 			return nil, result.Error
@@ -180,7 +180,7 @@ func GetFavoriteStatusList(userID uint64, videoIDList []uint64) ([]bool, error) 
 //func GetFavoriteStatus(userID, videoID uint64) bool {
 //	var favorite dao.Favorite
 //	// 得到结果
-//	global.GVAR_DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).
+//	global.DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).
 //		Limit(1).Find(&favorite)
 //	return favorite.IsFavorite
 //}

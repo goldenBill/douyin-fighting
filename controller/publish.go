@@ -25,7 +25,7 @@ func Publish(c *gin.Context) {
 
 	title := c.PostForm("title")
 	// 判断title是否合法
-	if utf8.RuneCountInString(title) > global.GVAR_MAX_TITLE_LENGTH ||
+	if utf8.RuneCountInString(title) > global.MAX_TITLE_LENGTH ||
 		utf8.RuneCountInString(title) <= 0 {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "非法视频描述"})
 		return
@@ -41,7 +41,7 @@ func Publish(c *gin.Context) {
 		return
 	}
 
-	videoID, err := global.GVAR_ID_GENERATOR.NextID()
+	videoID, err := global.ID_GENERATOR.NextID()
 	if err != nil {
 		// 无法生成ID
 		c.JSON(http.StatusInternalServerError, Response{
@@ -54,8 +54,8 @@ func Publish(c *gin.Context) {
 	videoName := name + c.GetString("FileType")
 	coverName := name + ".jpg"
 
-	videoSavePath := filepath.Join(global.GVAR_VIDEO_ADDR, videoName)
-	coverSavePath := filepath.Join(global.GVAR_COVER_ADDR, coverName)
+	videoSavePath := filepath.Join(global.VIDEO_ADDR, videoName)
+	coverSavePath := filepath.Join(global.COVER_ADDR, coverName)
 
 	if err = c.SaveUploadedFile(data, videoSavePath); err != nil {
 		// 视频无法保存
@@ -107,7 +107,8 @@ func PublishList(c *gin.Context) {
 		//访问数据库出错
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
-	} else if numVideos == 0 {
+	}
+	if numVideos == 0 {
 		//没有满足条件的视频
 		c.JSON(http.StatusOK, FeedResponse{
 			Response:  Response{StatusCode: 0},
@@ -119,13 +120,11 @@ func PublishList(c *gin.Context) {
 	var (
 		videoJsonList  []Video
 		videoJson      Video
-		video          dao.Video
 		author         dao.User
 		authorJson     User
 		isFavoriteList []bool
 		isFollowList   []bool
 		isLogged       = false // 用户是否传入了合法有效的token（是否登录）
-		idx            int
 	)
 
 	var userID uint64
@@ -142,9 +141,9 @@ func PublishList(c *gin.Context) {
 		// 当用户登录时 一次性获取用户是否点赞了列表中的视频以及是否关注了视频的作者
 		videoIDList := make([]uint64, numVideos)
 		authorIDList := make([]uint64, numVideos)
-		for idx, video = range videoList {
-			videoIDList[idx] = video.VideoID
-			authorIDList[idx] = video.AuthorID
+		for i, video := range videoList {
+			videoIDList[i] = video.VideoID
+			authorIDList[i] = video.AuthorID
 		}
 
 		isFavoriteList, err = service.GetFavoriteStatusList(userID, videoIDList)
@@ -157,33 +156,29 @@ func PublishList(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
 		}
-
 	}
 
-	var isFavorite bool
-	var isFollow bool
+	// 未登录时默认为未关注未点赞
+	var isFavorite = false
+	var isFollow = false
 
-	for idx, video = range videoList {
-		// 未登录时默认为未关注未点赞
+	for i, video := range videoList {
 		if isLogged {
 			// 当用户登录时，判断是否关注当前作者
-			isFollow = isFollowList[idx]
-			isFavorite = isFavoriteList[idx]
-		} else {
-			isFavorite = false
-			isFollow = false
+			isFollow = isFollowList[i]
+			isFavorite = isFavoriteList[i]
 		}
 		// 二次确认返回的视频与封面是服务器存在的
-		VideoLocation := filepath.Join(global.GVAR_VIDEO_ADDR, video.PlayName)
+		VideoLocation := filepath.Join(global.VIDEO_ADDR, video.PlayName)
 		if _, err = os.Stat(VideoLocation); err != nil {
 			continue
 		}
-		CoverLocation := filepath.Join(global.GVAR_COVER_ADDR, video.CoverName)
+		CoverLocation := filepath.Join(global.COVER_ADDR, video.CoverName)
 		if _, err = os.Stat(CoverLocation); err != nil {
 			continue
 		}
 
-		author = authorList[idx]
+		author = authorList[i]
 		authorJson.ID = author.UserID
 		authorJson.Name = author.Name
 		authorJson.FollowCount = author.FollowCount

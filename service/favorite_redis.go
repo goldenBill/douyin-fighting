@@ -16,13 +16,13 @@ func DeleteFavoriteFromCache(videoID, userID, authorID uint64) error {
 	videoRedis := "Video:" + strconv.FormatUint(videoID, 10)
 
 	// 删除缓存
-	_, err := global.GVAR_REDIS.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
+	_, err := global.REDIS.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
 		// 删除点赞关系
-		pipe.Del(global.GVAR_CONTEXT, userFavoriteRedis)
+		pipe.Del(global.CONTEXT, userFavoriteRedis)
 		//删除redis video相关
-		pipe.Del(global.GVAR_CONTEXT, videoRedis)
+		pipe.Del(global.CONTEXT, videoRedis)
 		//删除redis user相关
-		pipe.Del(global.GVAR_CONTEXT, userRedis, authorRedis)
+		pipe.Del(global.CONTEXT, userRedis, authorRedis)
 		return nil
 	})
 	return err
@@ -42,20 +42,20 @@ func UpdateFavoriteActionFromCache(videoID, userID, authorID uint64) error {
 	// 更新 userFavoriteRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, userFavoriteRedis).Val(); result <= 0 {
+			if result := global.REDIS.Exists(global.CONTEXT, userFavoriteRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.SAdd(global.GVAR_CONTEXT, userFavoriteRedis, videoID)
-				pipe.Expire(global.GVAR_CONTEXT, userFavoriteRedis, global.FAVORITE_EXPIRE)
+			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
+				pipe.SAdd(global.CONTEXT, userFavoriteRedis, videoID)
+				pipe.Expire(global.CONTEXT, userFavoriteRedis, global.FAVORITE_EXPIRE)
 				return nil
 			})
 			return err
 		}
 		err := Retry(txf, userFavoriteRedis)
 		if err != nil {
-			err = global.GVAR_REDIS.Del(global.GVAR_CONTEXT, userFavoriteRedis).Err()
+			err = global.REDIS.Del(global.CONTEXT, userFavoriteRedis).Err()
 		}
 		ch <- err
 	}()
@@ -63,20 +63,20 @@ func UpdateFavoriteActionFromCache(videoID, userID, authorID uint64) error {
 	// 更新 userRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, userRedis).Val(); result <= 0 {
+			if result := global.REDIS.Exists(global.CONTEXT, userRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.HIncrBy(global.GVAR_CONTEXT, userRedis, "favorite_count", 1)
-				pipe.Expire(global.GVAR_CONTEXT, userRedis, global.USER_INFO_EXPIRE)
+			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
+				pipe.HIncrBy(global.CONTEXT, userRedis, "favorite_count", 1)
+				pipe.Expire(global.CONTEXT, userRedis, global.USER_INFO_EXPIRE)
 				return nil
 			})
 			return err
 		}
 		err := Retry(txf, userRedis)
 		if err != nil {
-			err = global.GVAR_REDIS.Del(global.GVAR_CONTEXT, userRedis).Err()
+			err = global.REDIS.Del(global.CONTEXT, userRedis).Err()
 		}
 		ch <- err
 	}()
@@ -84,20 +84,20 @@ func UpdateFavoriteActionFromCache(videoID, userID, authorID uint64) error {
 	// 更新 authorRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, authorRedis).Val(); result <= 0 {
+			if result := global.REDIS.Exists(global.CONTEXT, authorRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.HIncrBy(global.GVAR_CONTEXT, authorRedis, "total_favorited", 1)
-				pipe.Expire(global.GVAR_CONTEXT, authorRedis, global.USER_INFO_EXPIRE)
+			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
+				pipe.HIncrBy(global.CONTEXT, authorRedis, "total_favorited", 1)
+				pipe.Expire(global.CONTEXT, authorRedis, global.USER_INFO_EXPIRE)
 				return nil
 			})
 			return err
 		}
 		err := Retry(txf, authorRedis)
 		if err != nil {
-			err = global.GVAR_REDIS.Del(global.GVAR_CONTEXT, authorRedis).Err()
+			err = global.REDIS.Del(global.CONTEXT, authorRedis).Err()
 		}
 		ch <- err
 	}()
@@ -105,20 +105,20 @@ func UpdateFavoriteActionFromCache(videoID, userID, authorID uint64) error {
 	// 更新 videoRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, videoRedis).Val(); result <= 0 {
+			if result := global.REDIS.Exists(global.CONTEXT, videoRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.HIncrBy(global.GVAR_CONTEXT, videoRedis, "favorite_count", 1)
-				pipe.Expire(global.GVAR_CONTEXT, videoRedis, global.VIDEO_EXPIRE)
+			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
+				pipe.HIncrBy(global.CONTEXT, videoRedis, "favorite_count", 1)
+				pipe.Expire(global.CONTEXT, videoRedis, global.VIDEO_EXPIRE)
 				return nil
 			})
 			return err
 		}
 		err := Retry(txf, videoRedis)
 		if err != nil {
-			err = global.GVAR_REDIS.Del(global.GVAR_CONTEXT, videoRedis).Err()
+			err = global.REDIS.Del(global.CONTEXT, videoRedis).Err()
 		}
 		ch <- err
 	}()
@@ -146,20 +146,20 @@ func UpdateCancelFavoriteFromCache(videoID, userID, authorID uint64) error {
 	// 更新 userFavoriteRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, userFavoriteRedis).Val(); result <= 0 {
+			if result := global.REDIS.Exists(global.CONTEXT, userFavoriteRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.SRem(global.GVAR_CONTEXT, userFavoriteRedis, videoID)
-				pipe.Expire(global.GVAR_CONTEXT, userFavoriteRedis, global.FAVORITE_EXPIRE)
+			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
+				pipe.SRem(global.CONTEXT, userFavoriteRedis, videoID)
+				pipe.Expire(global.CONTEXT, userFavoriteRedis, global.FAVORITE_EXPIRE)
 				return nil
 			})
 			return err
 		}
 		err := Retry(txf, userFavoriteRedis)
 		if err != nil {
-			err = global.GVAR_REDIS.Del(global.GVAR_CONTEXT, userFavoriteRedis).Err()
+			err = global.REDIS.Del(global.CONTEXT, userFavoriteRedis).Err()
 		}
 		ch <- err
 	}()
@@ -167,20 +167,20 @@ func UpdateCancelFavoriteFromCache(videoID, userID, authorID uint64) error {
 	// 更新 userRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, userRedis).Val(); result <= 0 {
+			if result := global.REDIS.Exists(global.CONTEXT, userRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.HIncrBy(global.GVAR_CONTEXT, userRedis, "favorite_count", -1)
-				pipe.Expire(global.GVAR_CONTEXT, userRedis, global.USER_INFO_EXPIRE)
+			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
+				pipe.HIncrBy(global.CONTEXT, userRedis, "favorite_count", -1)
+				pipe.Expire(global.CONTEXT, userRedis, global.USER_INFO_EXPIRE)
 				return nil
 			})
 			return err
 		}
 		err := Retry(txf, userRedis)
 		if err != nil {
-			err = global.GVAR_REDIS.Del(global.GVAR_CONTEXT, userRedis).Err()
+			err = global.REDIS.Del(global.CONTEXT, userRedis).Err()
 		}
 		ch <- err
 	}()
@@ -188,20 +188,20 @@ func UpdateCancelFavoriteFromCache(videoID, userID, authorID uint64) error {
 	// 更新 authorRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, authorRedis).Val(); result <= 0 {
+			if result := global.REDIS.Exists(global.CONTEXT, authorRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.HIncrBy(global.GVAR_CONTEXT, authorRedis, "total_favorited", -1)
-				pipe.Expire(global.GVAR_CONTEXT, authorRedis, global.USER_INFO_EXPIRE)
+			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
+				pipe.HIncrBy(global.CONTEXT, authorRedis, "total_favorited", -1)
+				pipe.Expire(global.CONTEXT, authorRedis, global.USER_INFO_EXPIRE)
 				return nil
 			})
 			return err
 		}
 		err := Retry(txf, authorRedis)
 		if err != nil {
-			err = global.GVAR_REDIS.Del(global.GVAR_CONTEXT, authorRedis).Err()
+			err = global.REDIS.Del(global.CONTEXT, authorRedis).Err()
 		}
 		ch <- err
 	}()
@@ -209,20 +209,20 @@ func UpdateCancelFavoriteFromCache(videoID, userID, authorID uint64) error {
 	// 更新 videoRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, videoRedis).Val(); result <= 0 {
+			if result := global.REDIS.Exists(global.CONTEXT, videoRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.HIncrBy(global.GVAR_CONTEXT, videoRedis, "favorite_count", -1)
-				pipe.Expire(global.GVAR_CONTEXT, videoRedis, global.VIDEO_EXPIRE)
+			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
+				pipe.HIncrBy(global.CONTEXT, videoRedis, "favorite_count", -1)
+				pipe.Expire(global.CONTEXT, videoRedis, global.VIDEO_EXPIRE)
 				return nil
 			})
 			return err
 		}
 		err := Retry(txf, videoRedis)
 		if err != nil {
-			err = global.GVAR_REDIS.Del(global.GVAR_CONTEXT, videoRedis).Err()
+			err = global.REDIS.Del(global.CONTEXT, videoRedis).Err()
 		}
 		ch <- err
 	}()
@@ -240,13 +240,13 @@ func GetFavoriteListByUserIDFromCache(userID uint64) ([]uint64, error) {
 	//定义 key
 	userFavoriteRedis := fmt.Sprintf(UserFavoritePattern, userID)
 
-	if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, userFavoriteRedis).Val(); result <= 0 {
+	if result := global.REDIS.Exists(global.CONTEXT, userFavoriteRedis).Val(); result <= 0 {
 		return nil, errors.New("Not found in cache")
 	}
 	// Transactional function.
-	cmds, err := global.GVAR_REDIS.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-		pipe.SMembers(global.GVAR_CONTEXT, userFavoriteRedis).Val()
-		pipe.Expire(global.GVAR_CONTEXT, userFavoriteRedis, global.FAVORITE_EXPIRE)
+	cmds, err := global.REDIS.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
+		pipe.SMembers(global.CONTEXT, userFavoriteRedis).Val()
+		pipe.Expire(global.CONTEXT, userFavoriteRedis, global.FAVORITE_EXPIRE)
 		return nil
 	})
 	if err != nil {
@@ -272,15 +272,15 @@ func AddFavoriteListByUserIDInCache(userID uint64, videoIDList []uint64) error {
 	userFavoriteRedis := fmt.Sprintf(UserFavoritePattern, userID)
 
 	// Transactional function.
-	_, err := global.GVAR_REDIS.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
+	_, err := global.REDIS.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
 		// 初始化
-		pipe.SAdd(global.GVAR_CONTEXT, userFavoriteRedis, HEADER)
+		pipe.SAdd(global.CONTEXT, userFavoriteRedis, HEADER)
 		// 增加点赞关系
 		for _, each := range videoIDList {
-			pipe.SAdd(global.GVAR_CONTEXT, userFavoriteRedis, each)
+			pipe.SAdd(global.CONTEXT, userFavoriteRedis, each)
 		}
 		//设置过期时间
-		pipe.Expire(global.GVAR_CONTEXT, userFavoriteRedis, global.FAVORITE_EXPIRE)
+		pipe.Expire(global.CONTEXT, userFavoriteRedis, global.FAVORITE_EXPIRE)
 		return nil
 	})
 	return err

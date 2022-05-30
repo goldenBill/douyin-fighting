@@ -17,7 +17,7 @@ dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local
 ```go
 package global
 
-GVAR_AUTO_CREATE_DB bool = true     //是否自动生成数据库
+AUTO_CREATE_DB bool = true     //是否自动生成数据库
 ```
 
 ## 2. 用户注册登录接口

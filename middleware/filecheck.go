@@ -30,13 +30,11 @@ func bytesToHexString(src []byte) string {
 	return res.String()
 }
 
-// 用文件前面几个字节来判断
-// fSrc: 文件字节流（就用前面几个字节）
+// GetFileType 用于判断文件类型
 func GetFileType(fSrc []byte) string {
 	var fileType string
 	fileCode := bytesToHexString(fSrc)
-	//println(fileCode[:40])
-	global.GVAR_FILE_TYPE_MAP.Range(func(key, value interface{}) bool {
+	global.FILE_TYPE_MAP.Range(func(key, value interface{}) bool {
 		k := key.(string)
 		v := value.(string)
 		if strings.HasPrefix(fileCode, strings.ToLower(k)) ||
@@ -49,11 +47,11 @@ func GetFileType(fSrc []byte) string {
 	return fileType
 }
 
-// 定义中间件
+// FileCheck 定义中间件
 func FileCheck() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		data, err := c.FormFile("data")
-		if data.Size >= global.GVAR_MAX_FILE_SIZE {
+		if data.Size >= global.MAX_FILE_SIZE {
 			// 检验上传文件的大小
 			c.JSON(http.StatusForbidden, controller.Response{
 				StatusCode: 1,
@@ -72,7 +70,7 @@ func FileCheck() gin.HandlerFunc {
 			return
 		}
 		fileSuffix := path.Ext(data.Filename)
-		if _, ok := global.GVAR_WHITELIST_VIDEO[fileSuffix]; ok == false {
+		if _, ok := global.WHITELIST_VIDEO[fileSuffix]; ok == false {
 			// 文件后缀名不在白名单内
 			c.JSON(http.StatusForbidden, controller.Response{
 				StatusCode: 1,
