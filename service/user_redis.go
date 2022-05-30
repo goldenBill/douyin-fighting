@@ -18,20 +18,21 @@ func GetUserInfoByUserIDFromCache(userID uint64) (*dao.User, error) {
 	if result := global.GVAR_REDIS.Exists(global.GVAR_CONTEXT, userRedis).Val(); result <= 0 {
 		return nil, errors.New("Not found in cache")
 	}
-	// Scan all fields into the model.
-	var timeUnixMilliStr string
 	// Transactional function.
-	_, err := global.GVAR_REDIS.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
-		if err := pipe.HGetAll(global.GVAR_CONTEXT, userRedis).Scan(&user); err != nil {
-			panic(err)
-		}
-		timeUnixMilliStr = pipe.HGet(global.GVAR_CONTEXT, userRedis, "created_at").Val()
+	cmds, err := global.GVAR_REDIS.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
+		pipe.HGetAll(global.GVAR_CONTEXT, userRedis)
+		pipe.HGet(global.GVAR_CONTEXT, userRedis, "created_at").Val()
+		//设置过期时间
+		pipe.Expire(global.GVAR_CONTEXT, userRedis, global.USER_INFO_EXPIRE)
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	global.GVAR_REDIS.Expire(global.GVAR_CONTEXT, userRedis, global.USER_INFO_EXPIRE)
+	if err = cmds[0].(*redis.StringStringMapCmd).Scan(&user); err != nil {
+		return nil, err
+	}
+	timeUnixMilliStr := cmds[1].(*redis.StringCmd).Val()
 	timeUnixMilli, _ := strconv.ParseInt(timeUnixMilliStr, 10, 64)
 	user.CreatedAt = time.UnixMilli(timeUnixMilli)
 	return &user, nil
@@ -80,10 +81,24 @@ func GetUserListByUserIDListFromCache(userIDList []uint64) (userList []dao.User,
 }
 
 func AddUserListByUserIDListsFromCacheInCache(userList []dao.User) error {
-	for _, each := range userList {
-		if err := AddUserInfoByUserIDFromCacheInCache(&each); err != nil {
-			return err
+	// Transactional function.
+	_, err := global.GVAR_REDIS.TxPipelined(global.GVAR_CONTEXT, func(pipe redis.Pipeliner) error {
+		for _, each := range userList {
+			//定义 key
+			userRedis := fmt.Sprintf(UserPattern, each.UserID)
+
+			pipe.HSet(global.GVAR_CONTEXT, userRedis, "user_id", each.UserID)
+			pipe.HSet(global.GVAR_CONTEXT, userRedis, "name", each.Name)
+			pipe.HSet(global.GVAR_CONTEXT, userRedis, "password", each.Password)
+			pipe.HSet(global.GVAR_CONTEXT, userRedis, "follow_count", each.FollowerCount)
+			pipe.HSet(global.GVAR_CONTEXT, userRedis, "follower_count", each.FollowerCount)
+			pipe.HSet(global.GVAR_CONTEXT, userRedis, "total_favorited", each.TotalFavorited)
+			pipe.HSet(global.GVAR_CONTEXT, userRedis, "favorite_count", each.FavoriteCount)
+			pipe.HSet(global.GVAR_CONTEXT, userRedis, "created_at", each.CreatedAt.UnixMilli())
+			//设置过期时间
+			pipe.Expire(global.GVAR_CONTEXT, userRedis, global.USER_INFO_EXPIRE)
 		}
-	}
-	return nil
+		return nil
+	})
+	return err
 }

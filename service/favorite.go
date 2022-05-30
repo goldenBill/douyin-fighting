@@ -26,15 +26,16 @@ func FavoriteAction(userID, videoID uint64) error {
 			if err := tx.Save(&favorite).Error; err != nil {
 				return err
 			}
-		}
-		// 在点赞表中新增一个条目
-		favorite.FavoriteID, _ = global.GVAR_ID_GENERATOR.NextID()
-		favorite.VideoID = videoID
-		favorite.UserID = userID
-		favorite.IsFavorite = true
-		if err := tx.Create(&favorite).Error; err != nil {
-			// 插入出错，直接返回
-			return err
+		} else {
+			// 在点赞表中新增一个条目
+			favorite.FavoriteID, _ = global.GVAR_ID_GENERATOR.NextID()
+			favorite.VideoID = videoID
+			favorite.UserID = userID
+			favorite.IsFavorite = true
+			if err := tx.Create(&favorite).Error; err != nil {
+				// 插入出错，直接返回
+				return err
+			}
 		}
 		// 更新 videos 表的 FavoriteCount
 		if err := tx.Model(&dao.Video{}).Where("video_id = ?", videoID).
@@ -58,8 +59,8 @@ func FavoriteAction(userID, videoID uint64) error {
 			Update("total_favorited", gorm.Expr("total_favorited + 1")).Error; err != nil {
 			return err
 		}
-		//删除 redis 缓存
-		if err := DeleteFavoriteFromCache(videoID, userID, video.AuthorID); err != nil {
+		//尝试更新 redis 缓存；失败则删除 redis 缓存
+		if err := UpdateFavoriteActionFromCache(videoID, userID, video.AuthorID); err != nil {
 			return err
 		}
 		return nil
@@ -106,8 +107,8 @@ func CancelFavorite(userID, videoID uint64) error {
 			Update("total_favorited", gorm.Expr("total_favorited - 1")).Error; err != nil {
 			return err
 		}
-		//删除 redis 缓存
-		if err := DeleteFavoriteFromCache(videoID, userID, video.AuthorID); err != nil {
+		//尝试更新 redis 缓存；失败则删除 redis 缓存
+		if err := UpdateCancelFavoriteFromCache(videoID, userID, video.AuthorID); err != nil {
 			return err
 		}
 		return nil

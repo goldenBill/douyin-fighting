@@ -25,14 +25,15 @@ func AddFollow(followerID, celebrityID uint64) error {
 			if err := tx.Save(&follow).Error; err != nil {
 				return err
 			}
-		}
-		// 在关注表中新增一个条目
-		follow.FollowID, _ = global.GVAR_ID_GENERATOR.NextID()
-		follow.CelebrityID = celebrityID
-		follow.FollowerID = followerID
-		follow.IsFollow = true
-		if err := tx.Create(&follow).Error; err != nil {
-			return err
+		} else {
+			// 在关注表中新增一个条目
+			follow.FollowID, _ = global.GVAR_ID_GENERATOR.NextID()
+			follow.CelebrityID = celebrityID
+			follow.FollowerID = followerID
+			follow.IsFollow = true
+			if err := tx.Create(&follow).Error; err != nil {
+				return err
+			}
 		}
 		// 更新博主粉丝数
 		if err := tx.Model(&dao.User{}).Where("user_id = ?", celebrityID).
@@ -44,8 +45,8 @@ func AddFollow(followerID, celebrityID uint64) error {
 			Update("follow_count", gorm.Expr("follow_count + 1")).Error; err != nil {
 			return err
 		}
-		//删除 redis 缓存
-		if err := DeleteFollowFromCache(followerID, celebrityID); err != nil {
+		//尝试更新 redis 缓存；失败则删除 redis 缓存
+		if err := UpdateFollowActionFromCache(followerID, celebrityID); err != nil {
 			return err
 		}
 		return nil
@@ -80,8 +81,8 @@ func CancelFollow(followerID, celebrityID uint64) error {
 			Update("follow_count", gorm.Expr("follow_count - 1")).Error; err != nil {
 			return err
 		}
-		//删除 redis 缓存
-		if err := DeleteFollowFromCache(followerID, celebrityID); err != nil {
+		//尝试更新 redis 缓存；失败则删除 redis 缓存
+		if err := UpdateCancelFollowFromCache(followerID, celebrityID); err != nil {
 			return err
 		}
 		return nil
