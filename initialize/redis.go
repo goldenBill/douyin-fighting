@@ -11,8 +11,8 @@ func Redis() {
 		Password: "", // no password set
 		DB:       1,  // use default DB
 	})
-	if _, err := rdb.Ping(global.GVAR_CONTEXT).Result(); err != nil {
+	if _, err := rdb.Ping(global.CONTEXT).Result(); err != nil {
 		panic(err.Error())
 	}
-	global.GVAR_REDIS = rdb
+	global.REDIS = rdb
 }

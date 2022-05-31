@@ -27,13 +27,13 @@ func Register(c *gin.Context) {
 	username := c.Query("username")
 	password := c.Query("password")
 	// 验证用户名合法性
-	if utf8.RuneCountInString(username) > global.GVAR_MAX_USERNAME_LENGTH ||
+	if utf8.RuneCountInString(username) > global.MAX_USERNAME_LENGTH ||
 		utf8.RuneCountInString(username) <= 0 {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "非法用户名"})
 		return
 	}
 	//验证密码合法性
-	if ok, _ := regexp.MatchString(global.GVAR_MIN_PASSWORD_PATTERN, password); !ok {
+	if ok, _ := regexp.MatchString(global.MIN_PASSWORD_PATTERN, password); !ok {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "密码长度6-32，由字母大小写下划线组成"})
 		return
 	}
@@ -95,8 +95,8 @@ func UserInfo(c *gin.Context) {
 		return
 	}
 	//获取 viewer ID
-	viewerID := c.GetUint64("user_id")
-	//获取 user repsonse 报文所需信息
+	viewerID := c.GetUint64("UserID")
+	//获取 user response 报文所需信息
 	isFollow, err := service.GetIsFollowStatus(viewerID, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})

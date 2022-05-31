@@ -8,7 +8,7 @@ import (
 
 // AddFollow 关注
 func AddFollow(followerID, celebrityID uint64) error {
-	return global.GVAR_DB.Transaction(func(tx *gorm.DB) error {
+	return global.DB.Transaction(func(tx *gorm.DB) error {
 		// 得到结果
 		var follow dao.Follow
 		result := tx.Model(&dao.Follow{}).Where("celebrity_id = ? and follower_id = ?", celebrityID, followerID).
@@ -27,7 +27,7 @@ func AddFollow(followerID, celebrityID uint64) error {
 			}
 		} else {
 			// 在关注表中新增一个条目
-			follow.FollowID, _ = global.GVAR_ID_GENERATOR.NextID()
+			follow.FollowID, _ = global.ID_GENERATOR.NextID()
 			follow.CelebrityID = celebrityID
 			follow.FollowerID = followerID
 			follow.IsFollow = true
@@ -55,7 +55,7 @@ func AddFollow(followerID, celebrityID uint64) error {
 
 // CancelFollow 取消关注
 func CancelFollow(followerID, celebrityID uint64) error {
-	return global.GVAR_DB.Transaction(func(tx *gorm.DB) error {
+	return global.DB.Transaction(func(tx *gorm.DB) error {
 		// 得到结果
 		var follow dao.Follow
 		result := tx.Model(&dao.Follow{}).Where("celebrity_id = ? and follower_id = ?", celebrityID, followerID).
@@ -98,7 +98,7 @@ func GetFollowIDListByUserID(followerID uint64) ([]uint64, error) {
 	} else {
 		//redis没找到，数据库查询
 		var followList []dao.Follow
-		result := global.GVAR_DB.Model(&dao.Follow{}).Where("follower_id = ? and is_follow = ?", followerID, true).
+		result := global.DB.Model(&dao.Follow{}).Where("follower_id = ? and is_follow = ?", followerID, true).
 			Find(&followList)
 		if result.Error != nil {
 			return nil, result.Error
@@ -137,7 +137,7 @@ func GetFollowerIDListByUserID(celebrityID uint64) ([]uint64, error) {
 	} else {
 		//redis没找到，数据库查询
 		var followerList []dao.Follow
-		result := global.GVAR_DB.Model(&dao.Follow{}).Where("celebrity_id = ? and is_follow = ?", celebrityID, true).
+		result := global.DB.Model(&dao.Follow{}).Where("celebrity_id = ? and is_follow = ?", celebrityID, true).
 			Find(&followerList)
 		if result.Error != nil {
 			return nil, result.Error

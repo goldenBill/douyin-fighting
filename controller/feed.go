@@ -21,23 +21,21 @@ type FeedResponse struct {
 
 // Feed video list for every request
 func Feed(c *gin.Context) {
+	//println("Feed\n\n\n")
 	// 不传latest_time默认为当前时间
 	var CurrentTimeInt int64 = time.Now().UnixMilli()
 	var CurrentTime string = strconv.FormatInt(CurrentTimeInt, 10)
 	var LatestTimeStr string = c.DefaultQuery("latest_time", CurrentTime)
 	LatestTime, err := strconv.ParseInt(LatestTimeStr, 10, 64)
-	//fmt.Println(time.UnixMilli(LatestTime).Format("2006-01-02 15:04:05"))
 	if err != nil {
 		//无法解析latest_time
 		c.JSON(http.StatusBadRequest, Response{StatusCode: 1, StatusMsg: "parameter latest_time is wrong"})
 		return
 	}
+
 	var videoList []dao.Video
 	var authorList []dao.User
-
-	//service.GetFeedVideosAndAuthorsRedis(&videoList, &authorList, LatestTime, global.GVAR_FEED_NUM)
-
-	numVideos, err := service.GetFeedVideosAndAuthorsRedis(&videoList, &authorList, LatestTime, global.GVAR_FEED_NUM)
+	numVideos, err := service.GetFeedVideosAndAuthorsRedis(&videoList, &authorList, LatestTime, global.FEED_NUM)
 
 	if err != nil {
 		//访问数据库出错
@@ -56,13 +54,11 @@ func Feed(c *gin.Context) {
 	var (
 		videoJsonList  = make([]Video, 0, numVideos)
 		videoJson      Video
-		video          dao.Video
 		author         dao.User
 		authorJson     User
 		isFavoriteList []bool
 		isFollowList   []bool
 		isLogged       = false // 用户是否传入了合法有效的token（是否登录）
-		idx            int
 	)
 
 	var userID uint64
@@ -73,10 +69,6 @@ func Feed(c *gin.Context) {
 			// token合法
 			userID = claims.UserID
 			isLogged = true
-			//if service.IsUserIDExist(userID) {
-			//	// userID存在
-			//	isLogged = true
-			//}
 		}
 	}
 
@@ -84,9 +76,9 @@ func Feed(c *gin.Context) {
 		// 当用户登录时 一次性获取用户是否点赞了列表中的视频以及是否关注了视频的作者
 		videoIDList := make([]uint64, numVideos)
 		authorIDList := make([]uint64, numVideos)
-		for idx, video = range videoList {
-			videoIDList[idx] = video.VideoID
-			authorIDList[idx] = video.AuthorID
+		for i, video := range videoList {
+			videoIDList[i] = video.VideoID
+			authorIDList[i] = video.AuthorID
 		}
 		// 批量获取用户是否用视频点赞
 		isFavoriteList, err = service.GetFavoriteStatusList(userID, videoIDList)
@@ -102,31 +94,28 @@ func Feed(c *gin.Context) {
 		}
 	}
 
-	var isFavorite bool
-	var isFollow bool
+	// 未登录时默认为未关注未点赞
+	var isFavorite = false
+	var isFollow = false
 
-	for idx, video = range videoList {
+	for i, video := range videoList {
 		if isLogged {
 			// 当用户登录时，判断是否关注当前作者
-			isFollow = isFollowList[idx]
-			isFavorite = isFavoriteList[idx]
-		} else {
-			// 未登录时默认为未关注未点赞
-			isFavorite = false
-			isFollow = false
+			isFollow = isFollowList[i]
+			isFavorite = isFavoriteList[i]
 		}
 
 		// 二次确认返回的视频与封面是服务器存在的
-		VideoLocation := filepath.Join(global.GVAR_VIDEO_ADDR, video.PlayName)
+		VideoLocation := filepath.Join(global.VIDEO_ADDR, video.PlayName)
 		if _, err = os.Stat(VideoLocation); err != nil {
 			continue
 		}
-		CoverLocation := filepath.Join(global.GVAR_COVER_ADDR, video.CoverName)
+		CoverLocation := filepath.Join(global.COVER_ADDR, video.CoverName)
 		if _, err = os.Stat(CoverLocation); err != nil {
 			continue
 		}
 		// 填充JSON返回值
-		author = authorList[idx]
+		author = authorList[i]
 		authorJson.ID = author.UserID
 		authorJson.Name = author.Name
 		authorJson.FollowCount = author.FollowCount

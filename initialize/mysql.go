@@ -44,17 +44,17 @@ func MySQL() {
 		sqlDB, _ := db.DB()
 		sqlDB.SetMaxOpenConns(100) // 设置数据库最大连接数
 		sqlDB.SetMaxIdleConns(10)  // 设置上数据库最大闲置连接数
-		global.GVAR_DB = db
+		global.DB = db
 	} else {
 		panic("connect server failed")
 	}
 
-	if global.GVAR_AUTO_CREATE_DB {
-		global.GVAR_DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&dao.User{})
-		global.GVAR_DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&dao.Video{})
-		global.GVAR_DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&dao.Favorite{})
-		global.GVAR_DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&dao.Comment{})
-		global.GVAR_DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&dao.Follow{})
+	if global.AUTO_CREATE_DB {
+		global.DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&dao.User{})
+		global.DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&dao.Video{})
+		global.DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&dao.Favorite{})
+		global.DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&dao.Comment{})
+		global.DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&dao.Follow{})
 	}
 
 }
