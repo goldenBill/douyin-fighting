@@ -16,6 +16,7 @@ var (
 	UserFavoritePattern string = "favorite:%d"
 	CelebrityPattern    string = "celebrity:%d"
 	FollowerPattern     string = "follower:%d"
+	VideoPattern        string = "Video:%d"
 )
 
 func Retry(fn func(*redis.Tx) error, keys ...string) error {

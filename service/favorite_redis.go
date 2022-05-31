@@ -33,103 +33,86 @@ func UpdateFavoriteActionFromCache(videoID, userID, authorID uint64) error {
 	ch := make(chan error, 2)
 	defer close(ch)
 
-	//定义 key
-	userFavoriteRedis := fmt.Sprintf(UserFavoritePattern, userID)
-	userRedis := fmt.Sprintf(UserPattern, userID)
-	authorRedis := fmt.Sprintf(UserPattern, authorID)
-	videoRedis := "Video:" + strconv.FormatUint(videoID, 10)
-
 	// 更新 userFavoriteRedis 缓存
 	go func() {
-		txf := func(tx *redis.Tx) error {
-			if result := tx.Exists(global.CONTEXT, userFavoriteRedis).Val(); result <= 0 {
-				return nil
-			}
-			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.SAdd(global.CONTEXT, userFavoriteRedis, videoID)
-				pipe.Expire(global.CONTEXT, userFavoriteRedis, global.FAVORITE_EXPIRE)
-				return nil
-			})
-			return err
-		}
-		err := Retry(txf, userFavoriteRedis)
-		if err != nil {
-			err = global.REDIS.Del(global.CONTEXT, userFavoriteRedis).Err()
-		}
+		//定义 key
+		userFavoriteRedis := fmt.Sprintf(UserFavoritePattern, userID)
+		lua := redis.NewScript(`
+				if redis.call("Exists", KEYS[1]) > 0 then
+					redis.call("SAdd", KEYS[1], ARGV[1])
+					redis.call("Expire", KEYS[1], ARGV[2])
+					return true
+				end
+				return false
+			`)
+		keys := []string{userFavoriteRedis}
+		vals := []interface{}{videoID, global.FAVORITE_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
 		ch <- err
 	}()
 
 	// 更新 userRedis 缓存
 	go func() {
-		txf := func(tx *redis.Tx) error {
-			if result := tx.Exists(global.CONTEXT, userRedis).Val(); result <= 0 {
-				return nil
-			}
-			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.HIncrBy(global.CONTEXT, userRedis, "favorite_count", 1)
-				pipe.Expire(global.CONTEXT, userRedis, global.USER_INFO_EXPIRE)
-				return nil
-			})
-			return err
-		}
-		err := Retry(txf, userRedis)
-		if err != nil {
-			err = global.REDIS.Del(global.CONTEXT, userRedis).Err()
-		}
+		//定义 key
+		userRedis := fmt.Sprintf(UserPattern, userID)
+		lua := redis.NewScript(`
+				if redis.call("Exists", KEYS[1]) > 0 then
+					redis.call("HIncrBy", KEYS[1], "favorite_count", 1)
+					redis.call("Expire", KEYS[1], ARGV[1])
+					return true
+				end
+				return false
+			`)
+		keys := []string{userRedis}
+		vals := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
 		ch <- err
 	}()
 
 	// 更新 authorRedis 缓存
 	go func() {
-		txf := func(tx *redis.Tx) error {
-			if result := tx.Exists(global.CONTEXT, authorRedis).Val(); result <= 0 {
-				return nil
-			}
-			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.HIncrBy(global.CONTEXT, authorRedis, "total_favorited", 1)
-				pipe.Expire(global.CONTEXT, authorRedis, global.USER_INFO_EXPIRE)
-				return nil
-			})
-			return err
-		}
-		err := Retry(txf, authorRedis)
-		if err != nil {
-			err = global.REDIS.Del(global.CONTEXT, authorRedis).Err()
-		}
+		//定义 key
+		authorRedis := fmt.Sprintf(UserPattern, authorID)
+		lua := redis.NewScript(`
+				if redis.call("Exists", KEYS[1]) > 0 then
+					redis.call("HIncrBy", KEYS[1], "total_favorited", 1)
+					redis.call("Expire", KEYS[1], ARGV[1])
+					return true
+				end
+				return false
+			`)
+		keys := []string{authorRedis}
+		vals := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
 		ch <- err
 	}()
 
 	// 更新 videoRedis 缓存
 	go func() {
-		txf := func(tx *redis.Tx) error {
-			if result := tx.Exists(global.CONTEXT, videoRedis).Val(); result <= 0 {
-				return nil
-			}
-			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.HIncrBy(global.CONTEXT, videoRedis, "favorite_count", 1)
-				pipe.Expire(global.CONTEXT, videoRedis, global.VIDEO_EXPIRE)
-				return nil
-			})
-			return err
-		}
-		err := Retry(txf, videoRedis)
-		if err != nil {
-			err = global.REDIS.Del(global.CONTEXT, videoRedis).Err()
-		}
+		//定义 key
+		videoRedis := fmt.Sprintf(VideoPattern, videoID)
+		lua := redis.NewScript(`
+				if redis.call("Exists", KEYS[1]) > 0 then
+					redis.call("HIncrBy", KEYS[1], "favorite_count", 1)
+					redis.call("Expire", KEYS[1], ARGV[1])
+					return true
+				end
+				return false
+			`)
+		keys := []string{videoRedis}
+		vals := []interface{}{global.VIDEO_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
 		ch <- err
 	}()
 
+	var err error
 	for i := 0; i < 4; i++ {
-		err := <-ch
-		if err != nil {
-			return err
+		errTmp := <-ch
+		if errTmp != nil && errTmp != redis.Nil {
+			err = errTmp
 		}
 	}
-	return nil
+	return err
 }
 
 func UpdateCancelFavoriteFromCache(videoID, userID, authorID uint64) error {
@@ -137,103 +120,86 @@ func UpdateCancelFavoriteFromCache(videoID, userID, authorID uint64) error {
 	ch := make(chan error, 2)
 	defer close(ch)
 
-	//定义 key
-	userFavoriteRedis := fmt.Sprintf(UserFavoritePattern, userID)
-	userRedis := fmt.Sprintf(UserPattern, userID)
-	authorRedis := fmt.Sprintf(UserPattern, authorID)
-	videoRedis := "Video:" + strconv.FormatUint(videoID, 10)
-
 	// 更新 userFavoriteRedis 缓存
 	go func() {
-		txf := func(tx *redis.Tx) error {
-			if result := tx.Exists(global.CONTEXT, userFavoriteRedis).Val(); result <= 0 {
-				return nil
-			}
-			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.SRem(global.CONTEXT, userFavoriteRedis, videoID)
-				pipe.Expire(global.CONTEXT, userFavoriteRedis, global.FAVORITE_EXPIRE)
-				return nil
-			})
-			return err
-		}
-		err := Retry(txf, userFavoriteRedis)
-		if err != nil {
-			err = global.REDIS.Del(global.CONTEXT, userFavoriteRedis).Err()
-		}
+		//定义 key
+		userFavoriteRedis := fmt.Sprintf(UserFavoritePattern, userID)
+		lua := redis.NewScript(`
+				if redis.call("Exists", KEYS[1]) > 0 then
+					redis.call("SRem", KEYS[1], ARGV[1])
+					redis.call("Expire", KEYS[1], ARGV[2])
+					return true
+				end
+				return false
+			`)
+		keys := []string{userFavoriteRedis}
+		vals := []interface{}{videoID, global.FAVORITE_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
 		ch <- err
 	}()
 
 	// 更新 userRedis 缓存
 	go func() {
-		txf := func(tx *redis.Tx) error {
-			if result := tx.Exists(global.CONTEXT, userRedis).Val(); result <= 0 {
-				return nil
-			}
-			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.HIncrBy(global.CONTEXT, userRedis, "favorite_count", -1)
-				pipe.Expire(global.CONTEXT, userRedis, global.USER_INFO_EXPIRE)
-				return nil
-			})
-			return err
-		}
-		err := Retry(txf, userRedis)
-		if err != nil {
-			err = global.REDIS.Del(global.CONTEXT, userRedis).Err()
-		}
+		//定义 key
+		userRedis := fmt.Sprintf(UserPattern, userID)
+		lua := redis.NewScript(`
+				if redis.call("Exists", KEYS[1]) > 0 then
+					redis.call("HIncrBy", KEYS[1], "favorite_count", -1)
+					redis.call("Expire", KEYS[1], ARGV[1])
+					return true
+				end
+				return false
+			`)
+		keys := []string{userRedis}
+		vals := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
 		ch <- err
 	}()
 
 	// 更新 authorRedis 缓存
 	go func() {
-		txf := func(tx *redis.Tx) error {
-			if result := tx.Exists(global.CONTEXT, authorRedis).Val(); result <= 0 {
-				return nil
-			}
-			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.HIncrBy(global.CONTEXT, authorRedis, "total_favorited", -1)
-				pipe.Expire(global.CONTEXT, authorRedis, global.USER_INFO_EXPIRE)
-				return nil
-			})
-			return err
-		}
-		err := Retry(txf, authorRedis)
-		if err != nil {
-			err = global.REDIS.Del(global.CONTEXT, authorRedis).Err()
-		}
+		//定义 key
+		authorRedis := fmt.Sprintf(UserPattern, authorID)
+		lua := redis.NewScript(`
+				if redis.call("Exists", KEYS[1]) > 0 then
+					redis.call("HIncrBy", KEYS[1], "total_favorited", -1)
+					redis.call("Expire", KEYS[1], ARGV[1])
+					return true
+				end
+				return false
+			`)
+		keys := []string{authorRedis}
+		vals := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
 		ch <- err
 	}()
 
 	// 更新 videoRedis 缓存
 	go func() {
-		txf := func(tx *redis.Tx) error {
-			if result := tx.Exists(global.CONTEXT, videoRedis).Val(); result <= 0 {
-				return nil
-			}
-			// Operation is commited only if the watched keys remain unchanged.
-			_, err := tx.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
-				pipe.HIncrBy(global.CONTEXT, videoRedis, "favorite_count", -1)
-				pipe.Expire(global.CONTEXT, videoRedis, global.VIDEO_EXPIRE)
-				return nil
-			})
-			return err
-		}
-		err := Retry(txf, videoRedis)
-		if err != nil {
-			err = global.REDIS.Del(global.CONTEXT, videoRedis).Err()
-		}
+		//定义 key
+		videoRedis := fmt.Sprintf(VideoPattern, videoID)
+		lua := redis.NewScript(`
+				if redis.call("Exists", KEYS[1]) > 0 then
+					redis.call("HIncrBy", KEYS[1], "favorite_count", -1)
+					redis.call("Expire", KEYS[1], ARGV[1])
+					return true
+				end
+				return false
+			`)
+		keys := []string{videoRedis}
+		vals := []interface{}{global.VIDEO_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
 		ch <- err
 	}()
 
+	var err error
 	for i := 0; i < 4; i++ {
-		err := <-ch
-		if err != nil {
-			return err
+		errTmp := <-ch
+		if errTmp != nil && errTmp != redis.Nil {
+			err = errTmp
 		}
 	}
-	return nil
+	return err
 }
 
 func GetFavoriteListByUserIDFromCache(userID uint64) ([]uint64, error) {
