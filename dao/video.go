@@ -9,15 +9,7 @@ type Video struct {
 	CoverName     string    `gorm:"column:cover_name;NOT NULL" redis:"cover_name"`
 	FavoriteCount int64     `gorm:"-" redis:"favorite_count"`
 	CommentCount  int64     `gorm:"-" redis:"comment_count"`
-	AuthorID      uint64    `gorm:"column:author_id;NOT NULL" redis:"author_id"`
-	CreatedAt     time.Time `gorm:"column:created_at" redis:"-"`
+	AuthorID      uint64    `gorm:"column:author_id;index;NOT NULL" redis:"author_id"`
+	CreatedAt     time.Time `gorm:"column:created_at;index" redis:"-"`
 	ExtInfo       *string   `gorm:"column:ext_info" redis:"-"`
-}
-
-type VideoID struct {
-	VideoID uint64
-}
-
-func (VideoID) TableName() string {
-	return "videos"
 }

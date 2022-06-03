@@ -38,4 +38,5 @@ var (
 	FOLLOW_EXPIRE         time.Duration = 10 * time.Minute
 	USER_INFO_EXPIRE      time.Duration = 10 * time.Minute
 	VIDEO_EXPIRE          time.Duration = 10 * time.Minute
+	PUBLISH_EXPIRE                      = 10 * time.Minute
 )

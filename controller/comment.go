@@ -111,7 +111,7 @@ func CommentAction(c *gin.Context) {
 					IsFollow:       isFollow,
 				},
 				Content:    commentDao.Content,
-				CreateDate: commentDao.CreatedAt.Format("2006-01-02 15:04:05 Monday"),
+				CreateDate: commentDao.CreatedAt.Format("2006-01-02 15:04"),
 			},
 		})
 		return
@@ -200,7 +200,7 @@ func CommentList(c *gin.Context) {
 		commentJson.ID = comment.CommentID
 		commentJson.User = userJson
 		commentJson.Content = comment.Content
-		commentJson.CreateDate = comment.CreatedAt.Format("2006-01-02 15:04:05 Monday")
+		commentJson.CreateDate = comment.CreatedAt.Format("2006-01-02 15:04")
 
 		commentJsonList = append(commentJsonList, commentJson)
 	}

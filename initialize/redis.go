@@ -3,6 +3,7 @@ package initialize
 import (
 	"github.com/go-redis/redis/v8"
 	"github.com/goldenBill/douyin-fighting/global"
+	"github.com/goldenBill/douyin-fighting/service"
 )
 
 func Redis() {
@@ -15,4 +16,7 @@ func Redis() {
 		panic(err.Error())
 	}
 	global.REDIS = rdb
+	if err := service.GoFeed(); err != nil {
+		panic(err.Error())
+	}
 }

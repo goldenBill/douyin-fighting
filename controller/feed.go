@@ -40,7 +40,8 @@ func Feed(c *gin.Context) {
 		//访问数据库出错
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
-	} else if numVideos == 0 {
+	}
+	if numVideos == 0 {
 		//没有满足条件的视频
 		c.JSON(http.StatusOK, FeedResponse{
 			Response:  Response{StatusCode: 0},

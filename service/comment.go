@@ -3,62 +3,12 @@ package service
 import (
 	"errors"
 	"fmt"
-	"github.com/go-redis/redis/v8"
 	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
 	"gorm.io/gorm"
 	"strconv"
 	"time"
 )
-
-// AddCommentRedis 用户userID向视频videoID发送评论，评论内容为commentText
-func AddCommentRedis(comment *dao.Comment) error {
-	if err := global.DB.Create(comment).Error; err != nil {
-		return err
-	}
-	// 写redis
-	pipe := global.REDIS.TxPipeline()
-	videoIDStr := strconv.FormatUint(comment.VideoID, 10)
-	keyCommentsOfVideo := "CommentsOfVideo:" + videoIDStr
-	// 确保keyCommentsOfVideo在redis中
-	n, err := global.REDIS.Exists(global.CONTEXT, keyCommentsOfVideo).Result()
-	if err != nil {
-		return err
-	}
-	if n <= 0 {
-		// KeyCommentsOfVideo cache miss
-		var commentList []dao.Comment
-		result := global.DB.Where("video_id = ?", comment.VideoID).Find(&commentList)
-		if result.Error != nil || result.RowsAffected == 0 {
-			return errors.New("AddComment fail")
-		}
-		if err = GoCommentsOfVideo(commentList, keyCommentsOfVideo); err != nil {
-			return err
-		}
-	} else {
-		// KeyCommentsOfVideo cache hit
-		// 直接添加
-		Z := redis.Z{Score: float64(comment.CreatedAt.UnixMilli()) / 1000, Member: comment.CommentID}
-		pipe.ZAdd(global.CONTEXT, keyCommentsOfVideo, &Z)
-	}
-
-	// 确保video在redis中
-	if err = CheckVideo(comment.VideoID); err != nil {
-		return err
-	}
-
-	commentIDStr := strconv.FormatUint(comment.CommentID, 10)
-	userIDStr := strconv.FormatUint(comment.UserID, 10)
-
-	keyComment := "Comment:" + commentIDStr
-	keyVideo := "Video:" + videoIDStr
-
-	pipe.HIncrBy(global.CONTEXT, keyVideo, "comment_count", 1)
-	pipe.HSet(global.CONTEXT, keyComment, "content", comment.Content, "user_id", userIDStr, "video_id", videoIDStr, "created_at", time.Now().UnixMilli())
-	_, err = pipe.Exec(global.CONTEXT)
-
-	return err
-}
 
 func AddComment(comment *dao.Comment) error {
 	return global.DB.Transaction(func(tx *gorm.DB) error {
@@ -86,55 +36,6 @@ func DeleteComment(userID uint64, videoID uint64, commentID uint64) error {
 		}
 		return nil
 	})
-}
-
-// DeleteCommentRedis 用户userID删除视频videoID的评论commentID
-func DeleteCommentRedis(userID uint64, videoID uint64, commentID uint64) error {
-	var comment dao.Comment
-	comment.CommentID = commentID
-	// 先修改mysql
-	if err := global.DB.Where("user_id = ? and video_id = ?", userID, videoID).Delete(&comment).Error; err != nil {
-		return err
-	}
-
-	// 写redis
-	pipe := global.REDIS.TxPipeline()
-	videoIDStr := strconv.FormatUint(comment.VideoID, 10)
-	keyCommentsOfVideo := "CommentsOfVideo:" + videoIDStr
-	commentIDStr := strconv.FormatUint(commentID, 10)
-	// 确保keyCommentsOfVideo在redis中
-	n, err := global.REDIS.Exists(global.CONTEXT, keyCommentsOfVideo).Result()
-	if err != nil {
-		return err
-	}
-	if n <= 0 {
-		// KeyCommentsOfVideo cache miss
-		var commentList []dao.Comment
-		result := global.DB.Where("video_id = ?", comment.VideoID).Find(&commentList)
-		if result.Error != nil || result.RowsAffected == 0 {
-			return errors.New("AddComment fail")
-		}
-		if err = GoCommentsOfVideo(commentList, keyCommentsOfVideo); err != nil {
-			return err
-		}
-	} else {
-		// KeyCommentsOfVideo cache hit
-		// 直接删除
-		pipe.ZRem(global.CONTEXT, keyCommentsOfVideo, commentIDStr)
-	}
-
-	// 确保video在redis中
-	if err = CheckVideo(comment.VideoID); err != nil {
-		return err
-	}
-
-	keyComment := "Comment:" + commentIDStr
-	keyVideo := "Video:" + videoIDStr
-	// KeyComment 是否存在无所谓，因为要被删掉
-	pipe.Del(global.CONTEXT, keyComment)
-	pipe.HIncrBy(global.CONTEXT, keyVideo, "comment_count", -1)
-	_, err = pipe.Exec(global.CONTEXT)
-	return err
 }
 
 // GetCommentListAndUserListRedis 获取评论列表和对应的用户列表
@@ -165,6 +66,9 @@ func GetCommentListAndUserListRedis(videoID uint64, commentList *[]dao.Comment, 
 		return GetUserListByUserIDs(authorIDList, userList)
 	}
 	//	CommentsOfVideo:id 存在
+	if err = global.REDIS.Expire(global.CONTEXT, keyCommentsOfVideo, global.VIDEO_EXPIRE).Err(); err != nil {
+		return err
+	}
 	commentIDStrList, err := global.REDIS.ZRevRange(global.CONTEXT, keyCommentsOfVideo, 0, -1).Result()
 	if err != nil {
 		return err
@@ -195,6 +99,9 @@ func GetCommentListAndUserListRedis(videoID uint64, commentList *[]dao.Comment, 
 			}
 			*commentList = append(*commentList, comment)
 			authorIDList = append(authorIDList, comment.UserID)
+			continue
+		}
+		if err = global.REDIS.Expire(global.CONTEXT, keyComment, global.VIDEO_EXPIRE).Err(); err != nil {
 			continue
 		}
 		if err = global.REDIS.HGetAll(global.CONTEXT, keyComment).Scan(&comment); err != nil {
