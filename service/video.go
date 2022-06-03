@@ -10,101 +10,10 @@ import (
 	"time"
 )
 
-func CheckCommentsOfVideo(videoID uint64) error {
-	// 确保 KeyCommentsOfVideo存在
-	videoIDStr := strconv.FormatUint(videoID, 10)
-	keyCommentsOfVideo := "CommentsOfVideo:" + videoIDStr
-	n, err := global.REDIS.Exists(global.CONTEXT, keyCommentsOfVideo).Result()
-	if err != nil {
-		return err
-	}
-	if n <= 0 {
-		// KeyCommentsOfVideo 不存在
-		var commentList []dao.Comment
-		result := global.DB.Where("video_id = ?", videoID).Find(&commentList)
-		if result.Error != nil || result.RowsAffected == 0 {
-			return errors.New("DeleteComment fail")
-		}
-		// 翻转 commentList: 最近的评论放在前面
-		numComments := int(result.RowsAffected)
-		for i, j := 0, numComments-1; i < j; i, j = i+1, j-1 {
-			commentList[i], commentList[j] = commentList[j], commentList[i]
-		}
-		err = GoCommentsOfVideo(commentList, keyCommentsOfVideo)
-	}
-	return err
-}
-
-func CheckVideo(videoID uint64) error {
-	videoIDStr := strconv.FormatUint(videoID, 10)
-	keyVideo := "Video:" + videoIDStr
-	n, err := global.REDIS.Exists(global.CONTEXT, keyVideo).Result()
-	if err != nil {
-		return err
-	}
-	if n <= 0 {
-		// "video_id"不存在
-		var video dao.Video
-		result := global.DB.Where("video_id = ?", videoID).Limit(1).Find(&video)
-		if result.Error != nil || result.RowsAffected == 0 {
-			return errors.New("Redis出错或videoID不存在")
-		}
-		// 写redis Video:videoID
-		err = GoVideo(video)
-	}
-	return err
-}
-
-func GoFeed(allVideos []dao.Video) error {
-	var listZ = make([]*redis.Z, 0, len(allVideos))
-	for _, video := range allVideos {
-		listZ = append(listZ, &redis.Z{Score: float64(video.CreatedAt.UnixMilli()) / 1000, Member: video.VideoID})
-	}
-	return global.REDIS.ZAdd(global.CONTEXT, "feed", listZ...).Err()
-}
-
-func GoVideo(video dao.Video) error {
-	keyVideo := "Video:" + strconv.FormatUint(video.VideoID, 10)
-	err := global.REDIS.HSet(global.CONTEXT, keyVideo, "title", video.Title, "play_name", video.PlayName, "cover_name", video.CoverName,
-		"favorite_count", video.FavoriteCount, "comment_count", video.CommentCount, "author_id", video.AuthorID, "created_at", video.CreatedAt.UnixMilli()).Err()
-	return err
-}
-
-func GoPublish(videoList []dao.Video, userID uint64) error {
-	keyPublish := "Publish:" + strconv.FormatUint(userID, 10)
-	var listZ = make([]*redis.Z, 0, len(videoList))
-	for _, video := range videoList {
-		listZ = append(listZ, &redis.Z{Score: float64(video.CreatedAt.UnixMilli()) / 1000, Member: video.VideoID})
-	}
-	return global.REDIS.ZAdd(global.CONTEXT, keyPublish, listZ...).Err()
-}
-
-func GoCommentsOfVideo(commentList []dao.Comment, keyCommentsOfVideo string) error {
-	var listZ = make([]*redis.Z, 0, len(commentList))
-	for _, comment := range commentList {
-		listZ = append(listZ, &redis.Z{Score: float64(comment.CreatedAt.UnixMilli()) / 1000, Member: comment.CommentID})
-	}
-	return global.REDIS.ZAdd(global.CONTEXT, keyCommentsOfVideo, listZ...).Err()
-}
-
 // GetFeedVideosAndAuthorsRedis 返回视频数
-func GetFeedVideosAndAuthorsRedis(videoList *[]dao.Video, authors *[]dao.User, LatestTime int64, MaxNumVideo int) (int64, error) {
-	n, err := global.REDIS.Exists(global.CONTEXT, "feed").Result()
-	if err != nil {
+func GetFeedVideosAndAuthorsRedis(videoList *[]dao.Video, authors *[]dao.User, LatestTime int64, MaxNumVideo int) (int, error) {
+	if err := GoFeed(); err != nil {
 		return 0, err
-	}
-	if n <= 0 {
-		// "feed"不存在
-		var allVideos []dao.Video
-		if err = global.DB.Find(&allVideos).Error; err != nil {
-			return 0, err
-		}
-		if len(allVideos) == 0 {
-			return 0, nil
-		}
-		if err = GoFeed(allVideos); err != nil {
-			return 0, err
-		}
 	}
 	// 初始化查询条件， Offset和Count用于分页
 	op := redis.ZRangeBy{
@@ -120,93 +29,69 @@ func GetFeedVideosAndAuthorsRedis(videoList *[]dao.Video, authors *[]dao.User, L
 		return 0, err
 	}
 
-	*videoList = make([]dao.Video, 0, numVideos)
-	authorIDList := make([]uint64, 0, numVideos)
+	videoIDList := make([]uint64, 0, numVideos)
 	for _, videoIDStr := range videoIDStrList {
 		videoID, err := strconv.ParseUint(videoIDStr, 10, 64)
 		if err != nil {
 			continue
 		}
-
-		keyVideo := "Video:" + videoIDStr
-		n, err = global.REDIS.Exists(global.CONTEXT, keyVideo).Result()
-		if err != nil {
-			continue
-		}
-
-		var video dao.Video
-		if n <= 0 {
-			// "video_id"不存在
-			result := global.DB.Where("video_id = ?", videoID).Limit(1).Find(&video)
-			if err = GoVideo(video); err != nil {
-				return 0, err
-			}
-			if result.Error != nil || result.RowsAffected == 0 {
-				return 0, errors.New("get video fail")
-			}
-			authorIDList = append(authorIDList, video.AuthorID)
-			*videoList = append(*videoList, video)
-			continue
-		}
-		if err = global.REDIS.HGetAll(global.CONTEXT, keyVideo).Scan(&video); err != nil {
-			continue
-		}
-		// redis中的Video:没有存video_ID
-		video.VideoID = videoID
-		// 字符串无法直接转化为time.time
-		timeUnixMilliStr, err := global.REDIS.HGet(global.CONTEXT, keyVideo, "created_at").Result()
-		if err != nil {
-			continue
-		}
-		timeUnixMilli, err := strconv.ParseInt(timeUnixMilliStr, 10, 64)
-		if err != nil {
-			continue
-		}
-		video.CreatedAt = time.UnixMilli(timeUnixMilli)
-		authorIDList = append(authorIDList, video.AuthorID)
-		*videoList = append(*videoList, video)
+		videoIDList = append(videoIDList, videoID)
+	}
+	if err = GetVideoListByIDsRedis(videoList, videoIDList); err != nil {
+		return 0, err
+	}
+	numVideos = len(*videoList)
+	authorIDList := make([]uint64, numVideos)
+	for i, video := range *videoList {
+		authorIDList[i] = video.AuthorID
 	}
 	if err = GetUserListByUserIDs(authorIDList, authors); err != nil {
 		return 0, err
 	}
-	return int64(len(*videoList)), nil
-}
-
-// PublishVideo 记录接收视频的属性并写入数据库
-func PublishVideo(userID uint64, videoID uint64, videoName string, coverName string, title string) error {
-	var video dao.Video
-	video.VideoID = videoID
-	video.Title = title
-	video.PlayName = videoName
-	video.CoverName = coverName
-	//video.FavoriteCount = 0
-	//video.CommentCount = 0
-	video.AuthorID = userID
-	//video.CreatedAt = time.Now().UnixMilli()
-
-	return global.DB.Create(&video).Error
+	return len(*videoList), nil
 }
 
 func PublishVideoRedis(userID uint64, videoID uint64, videoName string, coverName string, title string) error {
-	keyPublish := fmt.Sprintf("Publish:%d", userID)
-	videoIDStr := strconv.FormatUint(videoID, 10)
-	Z := redis.Z{Score: float64(time.Now().Unix()), Member: videoIDStr}
-	if err := global.REDIS.ZAdd(global.CONTEXT, keyPublish, &Z).Err(); err != nil {
-		return err
+	favoriteCount, _ := GetFavoriteCountByVideoID(videoID)
+	video := dao.Video{
+		VideoID:       videoID,
+		Title:         title,
+		PlayName:      videoName,
+		CoverName:     coverName,
+		FavoriteCount: favoriteCount,
+		//CommentCount : 0,
+		AuthorID:  userID,
+		CreatedAt: time.Now(),
 	}
-	keyVideo := fmt.Sprintf("Video:%d", videoID)
-	if err := global.REDIS.HSet(global.CONTEXT, keyVideo, "author_id", userID, "play_name", videoName, "cover_name", coverName,
-		"favorite_count", 0, "comment_count", 0, "title", title, "created_at", time.Now().UnixMilli()).Err(); err != nil {
+	if global.DB.Create(&video).Error != nil {
+		return errors.New("video表插入失败")
+	}
+	keyPublish := fmt.Sprintf(PublishPattern, userID)
+	n, err := global.REDIS.Exists(global.CONTEXT, keyPublish).Result()
+	if err != nil {
 		return err
 	}
 
-	Z = redis.Z{Score: float64(time.Now().UnixMilli()) / 1000, Member: videoID}
-	return global.REDIS.ZAdd(global.CONTEXT, "feed", &Z).Err()
+	if n <= 0 {
+		//	keyPublish不存在
+		var videoList []dao.Video
+		if err = global.DB.Where("author_id = ?", userID).Find(&videoList).Error; err != nil {
+			return err
+		}
+		var listZ = make([]*redis.Z, 0, len(videoList))
+		for _, video_ := range videoList {
+			listZ = append(listZ, &redis.Z{Score: float64(video_.CreatedAt.UnixMilli()) / 1000, Member: video_.VideoID})
+		}
+		return PublishEvent(keyPublish, video, listZ...)
+	}
+	// keyPublish存在
+	Z := redis.Z{Score: float64(video.CreatedAt.UnixMilli()) / 1000, Member: video.VideoID}
+	return PublishEvent(keyPublish, video, &Z)
 }
 
 // GetPublishedVideosAndAuthorsRedis 按要求拉取feed视频和其作者
 func GetPublishedVideosAndAuthorsRedis(videoList *[]dao.Video, authors *[]dao.User, userID uint64) (int, error) {
-	keyPublish := "Publish:" + strconv.FormatUint(userID, 10)
+	keyPublish := fmt.Sprintf(PublishPattern, userID)
 	n, err := global.REDIS.Exists(global.CONTEXT, keyPublish).Result()
 	if err != nil {
 		return 0, err
@@ -218,13 +103,15 @@ func GetPublishedVideosAndAuthorsRedis(videoList *[]dao.Video, authors *[]dao.Us
 		if result.Error != nil || numVideos == 0 {
 			return 0, err
 		}
-		// 翻转：新视频放在前面
-		for i, j := 0, numVideos-1; i < j; i, j = i+1, j-1 {
-			(*videoList)[i], (*videoList)[j] = (*videoList)[j], (*videoList)[i]
+		var listZ = make([]*redis.Z, 0, numVideos)
+		for _, video_ := range *videoList {
+			listZ = append(listZ, &redis.Z{Score: float64(video_.CreatedAt.UnixMilli()) / 1000, Member: video_.VideoID})
 		}
-		if err = GoPublish(*videoList, userID); err != nil {
+		// 写入publish：userid
+		if err = GoPublishRedis(userID, listZ...); err != nil {
 			return 0, err
 		}
+
 		authorIDList := make([]uint64, numVideos)
 		for i, video := range *videoList {
 			authorIDList[i] = video.AuthorID
@@ -234,55 +121,30 @@ func GetPublishedVideosAndAuthorsRedis(videoList *[]dao.Video, authors *[]dao.Us
 		}
 		return numVideos, nil
 	}
-
+	// keyPublish存在
+	if err = global.REDIS.Expire(global.CONTEXT, keyPublish, global.PUBLISH_EXPIRE).Err(); err != nil {
+		return 0, err
+	}
 	videoIDStrList, err := global.REDIS.ZRevRange(global.CONTEXT, keyPublish, 0, -1).Result()
 	numVideos := len(videoIDStrList)
 	if err != nil {
 		return 0, err
 	}
-	*videoList = make([]dao.Video, 0, numVideos)
-	authorIDList := make([]uint64, 0, numVideos)
-
+	videoIDList := make([]uint64, 0, numVideos)
 	for _, videoIDStr := range videoIDStrList {
-		keyVideo := "Video:" + videoIDStr
 		videoID, err := strconv.ParseUint(videoIDStr, 10, 64)
 		if err != nil {
 			continue
 		}
-		n, err = global.REDIS.Exists(global.CONTEXT, keyVideo).Result()
-		if err != nil {
-			return 0, err
-		}
-		var video dao.Video
-		if n <= 0 {
-			// "video_id"不存在
-			result := global.DB.Where("video_id = ?", videoID).Limit(1).Find(&video)
-			if err = GoVideo(video); err != nil {
-				return 0, err
-			}
-			if result.Error != nil || result.RowsAffected == 0 {
-				return 0, errors.New("get video fail")
-			}
-			authorIDList = append(authorIDList, video.AuthorID)
-			*videoList = append(*videoList, video)
-			continue
-		}
-		// video_id存在 直接从redis中读入
-		if err = global.REDIS.HGetAll(global.CONTEXT, keyVideo).Scan(&video); err != nil {
-			return 0, err
-		}
-		video.VideoID = videoID
-		timeUnixMilliStr, err := global.REDIS.HGet(global.CONTEXT, keyVideo, "created_at").Result()
-		if err != nil {
-			continue
-		}
-		timeUnixMilli, err := strconv.ParseInt(timeUnixMilliStr, 10, 64)
-		if err != nil {
-			continue
-		}
-		video.CreatedAt = time.UnixMilli(timeUnixMilli)
-		authorIDList = append(authorIDList, video.AuthorID)
-		*videoList = append(*videoList, video)
+		videoIDList = append(videoIDList, videoID)
+	}
+	if err = GetVideoListByIDsRedis(videoList, videoIDList); err != nil {
+		return 0, err
+	}
+	numVideos = len(*videoList)
+	authorIDList := make([]uint64, numVideos)
+	for i, video := range *videoList {
+		authorIDList[i] = video.AuthorID
 	}
 	if err = GetUserListByUserIDs(authorIDList, authors); err != nil {
 		return 0, err
@@ -294,7 +156,7 @@ func GetPublishedVideosAndAuthorsRedis(videoList *[]dao.Video, authors *[]dao.Us
 func GetVideoListByIDsRedis(videoList *[]dao.Video, videoIDs []uint64) error {
 	*videoList = make([]dao.Video, 0, len(videoIDs))
 	for _, videoID := range videoIDs {
-		keyVideo := "Video:" + strconv.FormatUint(videoID, 10)
+		keyVideo := fmt.Sprintf(VideoPattern, videoID)
 		n, err := global.REDIS.Exists(global.CONTEXT, keyVideo).Result()
 		if err != nil {
 			return err
@@ -302,14 +164,18 @@ func GetVideoListByIDsRedis(videoList *[]dao.Video, videoIDs []uint64) error {
 		var video dao.Video
 		if n <= 0 {
 			result := global.DB.Where("video_id = ?", videoID).Limit(1).Find(&video)
+			video.FavoriteCount, _ = GetFavoriteCountByVideoID(videoID)
 			if result.Error != nil || result.RowsAffected == 0 {
 				return errors.New("GetVideoListByIDsRedis fail")
 			}
-			if err = GoVideo(video); err != nil {
+			if err = GoVideo(&video); err != nil {
 				return err
 			}
 			*videoList = append(*videoList, video)
 			continue
+		}
+		if err = global.REDIS.Expire(global.CONTEXT, keyVideo, global.VIDEO_EXPIRE).Err(); err != nil {
+			return err
 		}
 		if err = global.REDIS.HGetAll(global.CONTEXT, keyVideo).Scan(&video); err != nil {
 			return errors.New("GetVideoListByIDsRedis fail")
@@ -325,6 +191,52 @@ func GetVideoListByIDsRedis(videoList *[]dao.Video, videoIDs []uint64) error {
 		}
 		video.CreatedAt = time.UnixMilli(timeUnixMilli)
 		*videoList = append(*videoList, video)
+	}
+	return nil
+}
+
+func GetVideoIDListByUserID(userID uint64, videoIDList *[]uint64) error {
+	keyPublish := fmt.Sprintf(VideoCommentsPattern, userID)
+	n, err := global.REDIS.Exists(global.CONTEXT, keyPublish).Result()
+	if err != nil {
+		return err
+	}
+	if n <= 0 {
+		// "publish userid"不存在
+		var videoList []dao.Video
+		result := global.DB.Where("author_id = ?", userID).Find(&videoList)
+		if result.Error != nil {
+			return err
+		}
+		if result.RowsAffected == 0 {
+			return nil
+		}
+		numVideos := int(result.RowsAffected)
+		*videoIDList = make([]uint64, numVideos)
+		var listZ = make([]*redis.Z, 0, numVideos)
+		for i, videoID := range videoList {
+			// 逆序 最新的放在前面
+			(*videoIDList)[numVideos-i-1] = videoID.VideoID
+		}
+		for _, video := range videoList {
+			listZ = append(listZ, &redis.Z{Score: float64(video.CreatedAt.UnixMilli()) / 1000, Member: video.VideoID})
+		}
+		return GoPublishRedis(userID, listZ...)
+	}
+	// "publish userid"存在
+	if err = global.REDIS.Expire(global.CONTEXT, keyPublish, global.PUBLISH_EXPIRE).Err(); err != nil {
+		return err
+	}
+	videoIDStrList, err := global.REDIS.ZRevRange(global.CONTEXT, keyPublish, 0, -1).Result()
+	numVideos := len(videoIDStrList)
+	*videoIDList = make([]uint64, 0, numVideos)
+	for _, videoIDStr := range videoIDStrList {
+		// 逆序 最新的放在前面
+		videoID, err := strconv.ParseUint(videoIDStr, 10, 64)
+		if err != nil {
+			continue
+		}
+		*videoIDList = append(*videoIDList, videoID)
 	}
 	return nil
 }

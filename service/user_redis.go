@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func GetUserInfoByUserIDFromCache(userID uint64) (*dao.User, error) {
+func GetUserInfoByUserIDFromRedis(userID uint64) (*dao.User, error) {
 	//定义 key
 	userRedis := fmt.Sprintf(UserPattern, userID)
 
@@ -38,7 +38,7 @@ func GetUserInfoByUserIDFromCache(userID uint64) (*dao.User, error) {
 	return &user, nil
 }
 
-func AddUserInfoByUserIDFromCacheInCache(user *dao.User) error {
+func AddUserInfoByUserIDFromCacheToRedis(user *dao.User) error {
 	//定义 key
 	userRedis := fmt.Sprintf(UserPattern, user.UserID)
 
@@ -60,13 +60,13 @@ func AddUserInfoByUserIDFromCacheInCache(user *dao.User) error {
 
 }
 
-func GetUserListByUserIDListFromCache(userIDList []uint64) (userList []dao.User, notInCache []uint64, err error) {
+func GetUserListByUserIDListFromRedis(userIDList []uint64) (userList []dao.User, notInCache []uint64, err error) {
 	//定义 key
 	userNum := len(userIDList)
 	userList = make([]dao.User, 0, userNum)
 	notInCache = make([]uint64, 0, userNum)
 	for _, each := range userIDList {
-		user, err2 := GetUserInfoByUserIDFromCache(each)
+		user, err2 := GetUserInfoByUserIDFromRedis(each)
 		if err2 != nil && err2.Error() != "Not found in cache" {
 			return nil, nil, err2
 		} else if err2 == nil {
@@ -80,7 +80,7 @@ func GetUserListByUserIDListFromCache(userIDList []uint64) (userList []dao.User,
 	return
 }
 
-func AddUserListByUserIDListsFromCacheInCache(userList []dao.User) error {
+func AddUserListByUserIDListsToRedis(userList []dao.User) error {
 	// Transactional function.
 	_, err := global.REDIS.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
 		for _, each := range userList {

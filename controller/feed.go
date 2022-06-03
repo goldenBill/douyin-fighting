@@ -21,10 +21,9 @@ type FeedResponse struct {
 
 // Feed video list for every request
 func Feed(c *gin.Context) {
-	//println("Feed\n\n\n")
 	// 不传latest_time默认为当前时间
-	var CurrentTimeInt int64 = time.Now().UnixMilli()
-	var CurrentTime string = strconv.FormatInt(CurrentTimeInt, 10)
+	var CurrentTimeInt = time.Now().UnixMilli()
+	var CurrentTime = strconv.FormatInt(CurrentTimeInt, 10)
 	var LatestTimeStr string = c.DefaultQuery("latest_time", CurrentTime)
 	LatestTime, err := strconv.ParseInt(LatestTimeStr, 10, 64)
 	if err != nil {
@@ -41,7 +40,8 @@ func Feed(c *gin.Context) {
 		//访问数据库出错
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
-	} else if numVideos == 0 {
+	}
+	if numVideos == 0 {
 		//没有满足条件的视频
 		c.JSON(http.StatusOK, FeedResponse{
 			Response:  Response{StatusCode: 0},
@@ -87,7 +87,7 @@ func Feed(c *gin.Context) {
 			return
 		}
 		// 批量获取用户是否关注作者
-		isFollowList, err = service.GetIsFollowStatusList(userID, authorIDList)
+		isFollowList, err = service.GetFollowStatusList(userID, authorIDList)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return

@@ -97,11 +97,13 @@ func UserInfo(c *gin.Context) {
 	//获取 viewer ID
 	viewerID := c.GetUint64("UserID")
 	//获取 user response 报文所需信息
-	isFollow, err := service.GetIsFollowStatus(viewerID, userID)
+	isFollow, err := service.GetFollowStatus(viewerID, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
+	totalFavorited, _ := service.GetTotalFavoritedByUserID(userID)
+	favoriteCount, _ := service.GetFollowCountByUserID(userID)
 	//返回成功并生成响应 json
 	c.JSON(http.StatusOK, UserResponse{
 		Response: Response{StatusCode: 0, StatusMsg: "OK"},
@@ -110,8 +112,8 @@ func UserInfo(c *gin.Context) {
 			Name:           userDao.Name,
 			FollowCount:    userDao.FollowCount,
 			FollowerCount:  userDao.FollowerCount,
-			TotalFavorited: userDao.TotalFavorited,
-			FavoriteCount:  userDao.FavoriteCount,
+			TotalFavorited: totalFavorited,
+			FavoriteCount:  favoriteCount,
 			IsFollow:       isFollow,
 		},
 	})

@@ -11,12 +11,15 @@ type void struct{}
 var member void
 
 var (
-	HEADER              string = ""
-	UserPattern         string = "user:%d"
-	UserFavoritePattern string = "favorite:%d"
-	CelebrityPattern    string = "celebrity:%d"
-	FollowerPattern     string = "follower:%d"
-	VideoPattern        string = "Video:%d"
+	Header               string = ""
+	UserPattern          string = "user:%d"
+	UserFavoritePattern  string = "favorite:%d"
+	CelebrityPattern     string = "celebrity:%d"
+	FollowerPattern      string = "follower:%d"
+	VideoPattern         string = "Video:%d"
+	CommentPattern       string = "Comment:%d"
+	VideoCommentsPattern string = "CommentsOfVideo:%d"
+	PublishPattern              = "Publish:%d"
 )
 
 func Retry(fn func(*redis.Tx) error, keys ...string) error {

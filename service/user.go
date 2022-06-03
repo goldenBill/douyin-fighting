@@ -41,7 +41,7 @@ func Login(username string, password string) (user *dao.User, err error) {
 // UserInfoByUserID 通过 UserID 获取用户信息
 func UserInfoByUserID(userID uint64) (user *dao.User, err error) {
 	//查询redis
-	user, err = GetUserInfoByUserIDFromCache(userID)
+	user, err = GetUserInfoByUserIDFromRedis(userID)
 	if err == nil {
 		return
 	} else if err.Error() != "Not found in cache" {
@@ -49,12 +49,16 @@ func UserInfoByUserID(userID uint64) (user *dao.User, err error) {
 	}
 	//检查 userID 是否存在；若存在，获取用户信息
 	result := global.DB.Where("user_id = ?", userID).Limit(1).Find(&user)
+	user.FollowCount, _ = GetFollowCountByUserID(user.UserID)
+	user.FollowerCount, _ = GetFollowerCountByUserID(user.UserID)
+	user.FavoriteCount, _ = GetFavoriteCountByUserID(user.UserID)
+	user.TotalFavorited, _ = GetTotalFavoritedByUserID(user.UserID)
 	if result.RowsAffected == 0 {
 		err = errors.New("username does not exist")
 		return
 	}
 	//更新 redis
-	if err = AddUserInfoByUserIDFromCacheInCache(user); err != nil {
+	if err = AddUserInfoByUserIDFromCacheToRedis(user); err != nil {
 		return nil, err
 	}
 	return
@@ -64,7 +68,7 @@ func UserInfoByUserID(userID uint64) (user *dao.User, err error) {
 // GetUserListByUserIDList 根据 UserIDList 获取对应的用户列表
 func GetUserListByUserIDList(UserIDList []uint64) ([]dao.User, error) {
 	//查询redis
-	userList, notInCache, err := GetUserListByUserIDListFromCache(UserIDList)
+	userList, notInCache, err := GetUserListByUserIDListFromRedis(UserIDList)
 	if err != nil && err.Error() != "Not found in cache" {
 		return nil, err
 	} else if err == nil {
@@ -78,10 +82,14 @@ func GetUserListByUserIDList(UserIDList []uint64) ([]dao.User, error) {
 	// 针对查询结果建立映射关系
 	mapUserIDToUser := make(map[uint64]dao.User, len(uniqueUserList))
 	for idx, user := range uniqueUserList {
+		uniqueUserList[idx].FollowCount, _ = GetFollowCountByUserID(user.UserID)
+		uniqueUserList[idx].FollowerCount, _ = GetFollowerCountByUserID(user.UserID)
+		uniqueUserList[idx].FavoriteCount, _ = GetFavoriteCountByUserID(user.UserID)
+		uniqueUserList[idx].TotalFavorited, _ = GetTotalFavoritedByUserID(user.UserID)
 		mapUserIDToUser[user.UserID] = uniqueUserList[idx]
 	}
 	//更新 redis
-	if err = AddUserListByUserIDListsFromCacheInCache(uniqueUserList); err != nil {
+	if err = AddUserListByUserIDListsToRedis(uniqueUserList); err != nil {
 		return nil, err
 	}
 	//后续操作

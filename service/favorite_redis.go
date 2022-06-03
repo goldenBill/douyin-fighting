@@ -4,31 +4,59 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v8"
+	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
-	"strconv"
 )
 
-func DeleteFavoriteFromCache(videoID, userID, authorID uint64) error {
+func GetFavoriteStatusFromRedis(userID, videoID uint64) (bool, error) {
 	//定义 key
 	userFavoriteRedis := fmt.Sprintf(UserFavoritePattern, userID)
-	userRedis := fmt.Sprintf(UserPattern, userID)
-	authorRedis := fmt.Sprintf(UserPattern, authorID)
-	videoRedis := "Video:" + strconv.FormatUint(videoID, 10)
+	lua := redis.NewScript(`
+			if redis.call("Exists", KEYS[1]) <= 0 then
+				return false
+			end
+			local tmp = redis.call("ZScore", KEYS[1], ARGV[1])
+			if not tmp then
+				return {err = "No tracking information"}
+			end
+			redis.call("Expire", KEYS[1], ARGV[2])
+			return tmp
+			`)
+	keys := []string{userFavoriteRedis}
+	vals := []interface{}{videoID, global.FAVORITE_EXPIRE.Seconds()}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+	if err == nil {
+		return result, nil
+	} else if err == redis.Nil {
+		return false, errors.New("Not found in cache")
+	} else {
+		return false, err
+	}
+}
 
-	// 删除缓存
+func AddFavoriteVideoIDListByUserIDToRedis(userID uint64, favoriteList []dao.Favorite) error {
+	//定义 key
+	userFavoriteRedis := fmt.Sprintf(UserFavoritePattern, userID)
+	// Transactional function.
 	_, err := global.REDIS.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
-		// 删除点赞关系
-		pipe.Del(global.CONTEXT, userFavoriteRedis)
-		//删除redis video相关
-		pipe.Del(global.CONTEXT, videoRedis)
-		//删除redis user相关
-		pipe.Del(global.CONTEXT, userRedis, authorRedis)
+		//初始化
+		pipe.ZAdd(global.CONTEXT, userFavoriteRedis, &redis.Z{Score: 2, Member: Header})
+		// 增加点赞关系
+		for _, each := range favoriteList {
+			if each.IsFavorite {
+				pipe.ZAdd(global.CONTEXT, userFavoriteRedis, &redis.Z{Score: 1, Member: each.VideoID})
+			} else {
+				pipe.ZAdd(global.CONTEXT, userFavoriteRedis, &redis.Z{Score: 0, Member: each.VideoID})
+			}
+		}
+		//设置过期时间
+		pipe.Expire(global.CONTEXT, userFavoriteRedis, global.FAVORITE_EXPIRE)
 		return nil
 	})
 	return err
 }
 
-func UpdateFavoriteActionFromCache(videoID, userID, authorID uint64) error {
+func AddFavoriteForRedis(videoID, userID, authorID uint64) error {
 	// 设置管道
 	ch := make(chan error, 2)
 	defer close(ch)
@@ -39,7 +67,7 @@ func UpdateFavoriteActionFromCache(videoID, userID, authorID uint64) error {
 		userFavoriteRedis := fmt.Sprintf(UserFavoritePattern, userID)
 		lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
-					redis.call("SAdd", KEYS[1], ARGV[1])
+					redis.call("ZAdd", KEYS[1], 1, ARGV[1])
 					redis.call("Expire", KEYS[1], ARGV[2])
 					return true
 				end
@@ -115,7 +143,7 @@ func UpdateFavoriteActionFromCache(videoID, userID, authorID uint64) error {
 	return err
 }
 
-func UpdateCancelFavoriteFromCache(videoID, userID, authorID uint64) error {
+func CancelFavoriteForRedis(videoID, userID, authorID uint64) error {
 	// 设置管道
 	ch := make(chan error, 2)
 	defer close(ch)
@@ -126,7 +154,7 @@ func UpdateCancelFavoriteFromCache(videoID, userID, authorID uint64) error {
 		userFavoriteRedis := fmt.Sprintf(UserFavoritePattern, userID)
 		lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
-					redis.call("SRem", KEYS[1], ARGV[1])
+					redis.call("ZAdd", KEYS[1], 0, ARGV[1])
 					redis.call("Expire", KEYS[1], ARGV[2])
 					return true
 				end
@@ -202,52 +230,171 @@ func UpdateCancelFavoriteFromCache(videoID, userID, authorID uint64) error {
 	return err
 }
 
-func GetFavoriteListByUserIDFromCache(userID uint64) ([]uint64, error) {
+func GetFavoriteVideoIDListByUserIDFromRedis(userID uint64) ([]uint64, error) {
 	//定义 key
 	userFavoriteRedis := fmt.Sprintf(UserFavoritePattern, userID)
-
-	if result := global.REDIS.Exists(global.CONTEXT, userFavoriteRedis).Val(); result <= 0 {
+	lua := redis.NewScript(`
+			if redis.call("Exists", KEYS[1]) <= 0 then
+				return false
+			end
+			redis.call("Expire", KEYS[1], ARGV[1])
+			return redis.call("ZRangeByScore", KEYS[1], 1, 1)
+			`)
+	keys := []string{userFavoriteRedis}
+	vals := []interface{}{global.FAVORITE_EXPIRE.Seconds()}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Uint64Slice()
+	if err == nil {
+		return result, nil
+	} else if err == redis.Nil {
 		return nil, errors.New("Not found in cache")
-	}
-	// Transactional function.
-	cmds, err := global.REDIS.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
-		pipe.SMembers(global.CONTEXT, userFavoriteRedis).Val()
-		pipe.Expire(global.CONTEXT, userFavoriteRedis, global.FAVORITE_EXPIRE)
-		return nil
-	})
-	if err != nil {
+	} else {
 		return nil, err
 	}
-	videoIDStrList := cmds[0].(*redis.StringSliceCmd).Val()
-	videoIDList := make([]uint64, 0, len(videoIDStrList)-1)
-	for i := 0; i < len(videoIDStrList); i++ {
-		if videoIDStrList[i] == HEADER {
-			continue
-		}
-		videoID, err := strconv.ParseUint(videoIDStrList[i], 10, 64)
-		if err != nil {
-			return nil, errors.New("Wrong format conversion in cache")
-		}
-		videoIDList = append(videoIDList, videoID)
-	}
-	return videoIDList, nil
 }
 
-func AddFavoriteListByUserIDInCache(userID uint64, videoIDList []uint64) error {
+func GetFavoriteCountByVideoIDFromRedis(videoID uint64) (int64, error) {
 	//定义 key
-	userFavoriteRedis := fmt.Sprintf(UserFavoritePattern, userID)
+	videoRedis := fmt.Sprintf(VideoPattern, videoID)
+	lua := redis.NewScript(`
+				if redis.call("Exists", KEYS[1]) > 0 then
+					return redis.call("HGet", KEYS[1], favorite_count)
+				end
+				return false
+			`)
+	keys := []string{videoRedis}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys).Int64()
+	if err == nil {
+		return result, nil
+	} else if err == redis.Nil {
+		return 0, errors.New("Not found in cache")
+	} else {
+		return 0, err
+	}
+}
 
-	// Transactional function.
-	_, err := global.REDIS.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
-		// 初始化
-		pipe.SAdd(global.CONTEXT, userFavoriteRedis, HEADER)
-		// 增加点赞关系
-		for _, each := range videoIDList {
-			pipe.SAdd(global.CONTEXT, userFavoriteRedis, each)
-		}
-		//设置过期时间
-		pipe.Expire(global.CONTEXT, userFavoriteRedis, global.FAVORITE_EXPIRE)
+func AddFavoriteCountByVideoIDToRedis(videoID uint64, favoriteCount int64) error {
+	//定义 key
+	videoRedis := fmt.Sprintf(VideoPattern, videoID)
+	lua := redis.NewScript(`
+				if redis.call("Exists", KEYS[1]) > 0 then
+					return redis.call("HSet", KEYS[1], favorite_count, ARGV[1])
+				end
+				return false
+			`)
+	keys := []string{videoRedis}
+	vals := []interface{}{favoriteCount}
+	err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Err()
+	if err == nil || err == redis.Nil {
 		return nil
-	})
-	return err
+	} else {
+		return err
+	}
+}
+
+func GetFavoriteCountListByUVideoIDListFromRedis(videoIDList []uint64) (favoriteCountList []int64, notInCache []uint64, err error) {
+	//定义 key
+	userNum := len(videoIDList)
+	favoriteCountList = make([]int64, 0, userNum)
+	notInCache = make([]uint64, 0, userNum)
+	for _, each := range videoIDList {
+		favoriteCount, err2 := GetFavoriteCountByVideoIDFromRedis(each)
+		if err2 != nil && err2.Error() != "Not found in cache" {
+			return nil, nil, err2
+		} else if err2 == nil {
+			favoriteCountList = append(favoriteCountList, favoriteCount)
+		} else {
+			err = err2
+			favoriteCountList = append(favoriteCountList, -1)
+			notInCache = append(notInCache, each)
+		}
+	}
+	return
+}
+
+func AddFavoriteCountListByUVideoIDListToCache(videoList []dao.Video) error {
+	// Transactional function.
+	for _, each := range videoList {
+		if err := AddFavoriteCountByVideoIDToRedis(each.VideoID, each.FavoriteCount); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func GetFavoriteCountByUserIDFromRedis(userID uint64) (int64, error) {
+	//定义 key
+	userRedis := fmt.Sprintf(UserPattern, userID)
+	lua := redis.NewScript(`
+				if redis.call("Exists", KEYS[1]) > 0 then
+					return redis.call("HGet", KEYS[1], favorite_count)
+				end
+				return false
+			`)
+	keys := []string{userRedis}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys).Int64()
+	if err == nil {
+		return result, nil
+	} else if err == redis.Nil {
+		return 0, errors.New("Not found in cache")
+	} else {
+		return 0, err
+	}
+}
+
+func AddFavoriteCountByUserIDToRedis(userID uint64, favoriteCount int64) error {
+	//定义 key
+	userRedis := fmt.Sprintf(UserPattern, userID)
+	lua := redis.NewScript(`
+				if redis.call("Exists", KEYS[1]) > 0 then
+					return redis.call("HSet", KEYS[1], favorite_count, ARGV[1])
+				end
+				return false
+			`)
+	keys := []string{userRedis}
+	vals := []interface{}{favoriteCount}
+	err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Err()
+	if err == nil || err == redis.Nil {
+		return nil
+	} else {
+		return err
+	}
+}
+
+func GetTotalFavoritedByUserIDFromRedis(userID uint64) (int64, error) {
+	//定义 key
+	userRedis := fmt.Sprintf(UserPattern, userID)
+	lua := redis.NewScript(`
+				if redis.call("Exists", KEYS[1]) > 0 then
+					return redis.call("HGet", KEYS[1], total_favorited)
+				end
+				return false
+			`)
+	keys := []string{userRedis}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys).Int64()
+	if err == nil {
+		return result, nil
+	} else if err == redis.Nil {
+		return 0, errors.New("Not found in cache")
+	} else {
+		return 0, err
+	}
+}
+
+func AddTotalFavoritedByUserIDToRedis(userID uint64, favoriteCount int64) error {
+	//定义 key
+	userRedis := fmt.Sprintf(UserPattern, userID)
+	lua := redis.NewScript(`
+				if redis.call("Exists", KEYS[1]) > 0 then
+					return redis.call("HSet", KEYS[1], total_favorited, ARGV[1])
+				end
+				return false
+			`)
+	keys := []string{userRedis}
+	vals := []interface{}{favoriteCount}
+	err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Err()
+	if err == nil || err == redis.Nil {
+		return nil
+	} else {
+		return err
+	}
 }

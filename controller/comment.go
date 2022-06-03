@@ -79,7 +79,7 @@ func CommentAction(c *gin.Context) {
 			UserID:    r.UserID,
 			Content:   r.CommentText,
 		}
-		if err = service.AddCommentRedis(&commentDao); err != nil {
+		if err = service.AddComment(&commentDao); err != nil {
 			// 评论失败
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
 			return
@@ -91,7 +91,7 @@ func CommentAction(c *gin.Context) {
 			return
 		}
 		// 批量判断用户是否关注
-		isFollow, err := service.GetIsFollowStatus(r.UserID, userDao.UserID)
+		isFollow, err := service.GetFollowStatus(r.UserID, userDao.UserID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
@@ -111,14 +111,14 @@ func CommentAction(c *gin.Context) {
 					IsFollow:       isFollow,
 				},
 				Content:    commentDao.Content,
-				CreateDate: commentDao.CreatedAt.Format("2006-01-02 15:04:05 Monday"),
+				CreateDate: commentDao.CreatedAt.Format("2006-01-02 15:04"),
 			},
 		})
 		return
 	}
 
 	// 删除评论
-	if err := service.DeleteCommentRedis(r.UserID, r.VideoID, r.CommentID); err != nil {
+	if err := service.DeleteComment(r.UserID, r.VideoID, r.CommentID); err != nil {
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
 		return
 	}
@@ -167,7 +167,7 @@ func CommentList(c *gin.Context) {
 			authorIDList[i] = user_.UserID
 		}
 		// 批量判断用户是否关注评论的作者
-		isFollowList, err = service.GetIsFollowStatusList(userID, authorIDList)
+		isFollowList, err = service.GetFollowStatusList(userID, authorIDList)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
@@ -200,7 +200,7 @@ func CommentList(c *gin.Context) {
 		commentJson.ID = comment.CommentID
 		commentJson.User = userJson
 		commentJson.Content = comment.Content
-		commentJson.CreateDate = comment.CreatedAt.Format("2006-01-02 15:04:05 Monday")
+		commentJson.CreateDate = comment.CreatedAt.Format("2006-01-02 15:04")
 
 		commentJsonList = append(commentJsonList, commentJson)
 	}
