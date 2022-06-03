@@ -40,7 +40,7 @@ func UpdateFollowActionFromCache(followerID, celebrityID uint64) error {
 	// 更新 followerRelationRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.REDIS.Exists(global.CONTEXT, followerRelationRedis).Val(); result <= 0 {
+			if result := tx.Exists(global.CONTEXT, followerRelationRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
@@ -61,7 +61,7 @@ func UpdateFollowActionFromCache(followerID, celebrityID uint64) error {
 	// 更新 celebrityRelationRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.REDIS.Exists(global.CONTEXT, celebrityRelationRedis).Val(); result <= 0 {
+			if result := tx.Exists(global.CONTEXT, celebrityRelationRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
@@ -82,7 +82,7 @@ func UpdateFollowActionFromCache(followerID, celebrityID uint64) error {
 	// 更新 followerRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.REDIS.Exists(global.CONTEXT, followerRedis).Val(); result <= 0 {
+			if result := tx.Exists(global.CONTEXT, followerRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
@@ -103,7 +103,7 @@ func UpdateFollowActionFromCache(followerID, celebrityID uint64) error {
 	// 更新 celebrityRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.REDIS.Exists(global.CONTEXT, celebrityRedis).Val(); result <= 0 {
+			if result := tx.Exists(global.CONTEXT, celebrityRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
@@ -144,7 +144,7 @@ func UpdateCancelFollowFromCache(followerID, celebrityID uint64) error {
 	// 更新 followerRelationRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.REDIS.Exists(global.CONTEXT, followerRelationRedis).Val(); result <= 0 {
+			if result := tx.Exists(global.CONTEXT, followerRelationRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
@@ -165,7 +165,7 @@ func UpdateCancelFollowFromCache(followerID, celebrityID uint64) error {
 	// 更新 celebrityRelationRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.REDIS.Exists(global.CONTEXT, celebrityRelationRedis).Val(); result <= 0 {
+			if result := tx.Exists(global.CONTEXT, celebrityRelationRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
@@ -186,7 +186,7 @@ func UpdateCancelFollowFromCache(followerID, celebrityID uint64) error {
 	// 更新 followerRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.REDIS.Exists(global.CONTEXT, followerRedis).Val(); result <= 0 {
+			if result := tx.Exists(global.CONTEXT, followerRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.
@@ -207,7 +207,7 @@ func UpdateCancelFollowFromCache(followerID, celebrityID uint64) error {
 	// 更新 celebrityRedis 缓存
 	go func() {
 		txf := func(tx *redis.Tx) error {
-			if result := global.REDIS.Exists(global.CONTEXT, celebrityRedis).Val(); result <= 0 {
+			if result := tx.Exists(global.CONTEXT, celebrityRedis).Val(); result <= 0 {
 				return nil
 			}
 			// Operation is commited only if the watched keys remain unchanged.

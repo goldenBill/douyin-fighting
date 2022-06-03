@@ -90,7 +90,7 @@ func AddUserListByUserIDListsFromCacheInCache(userList []dao.User) error {
 			pipe.HSet(global.CONTEXT, userRedis, "user_id", each.UserID)
 			pipe.HSet(global.CONTEXT, userRedis, "name", each.Name)
 			pipe.HSet(global.CONTEXT, userRedis, "password", each.Password)
-			pipe.HSet(global.CONTEXT, userRedis, "follow_count", each.FollowerCount)
+			pipe.HSet(global.CONTEXT, userRedis, "follow_count", each.FollowCount)
 			pipe.HSet(global.CONTEXT, userRedis, "follower_count", each.FollowerCount)
 			pipe.HSet(global.CONTEXT, userRedis, "total_favorited", each.TotalFavorited)
 			pipe.HSet(global.CONTEXT, userRedis, "favorite_count", each.FavoriteCount)

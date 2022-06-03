@@ -15,7 +15,7 @@ var (
 	CONTEXT              = context.Background()
 	FILE_TYPE_MAP        sync.Map
 	ID_GENERATOR         *sonyflake.Sonyflake
-	AUTO_CREATE_DB             = false                   //是否自动生成数据库
+	AUTO_CREATE_DB             = true                    //是否自动生成数据库
 	MAX_USERNAME_LENGTH        = 32                      // 用户名最大长度
 	MIN_PASSWORD_PATTERN       = "^[_a-zA-Z0-9]{6,32}$"  //密码格式
 	JWT_SigningKey             = "douyin-fighting-redis" //初始化全局签名
@@ -31,9 +31,11 @@ var (
 )
 
 var (
-	MAX_RETRIES      int           = 1000
-	FAVORITE_EXPIRE  time.Duration = 10 * time.Minute
-	FOLLOW_EXPIRE    time.Duration = 10 * time.Minute
-	USER_INFO_EXPIRE time.Duration = 10 * time.Minute
-	VIDEO_EXPIRE     time.Duration = 10 * time.Minute
+	MAX_RETRIES           int           = 1000
+	FAVORITE_EXPIRE       time.Duration = 10 * time.Minute
+	VIDEO_COMMENTS_EXPIRE               = 10 * time.Minute
+	COMMENT_EXPIRE                      = 10 * time.Minute
+	FOLLOW_EXPIRE         time.Duration = 10 * time.Minute
+	USER_INFO_EXPIRE      time.Duration = 10 * time.Minute
+	VIDEO_EXPIRE          time.Duration = 10 * time.Minute
 )

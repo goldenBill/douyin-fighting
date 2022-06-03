@@ -79,7 +79,7 @@ func CommentAction(c *gin.Context) {
 			UserID:    r.UserID,
 			Content:   r.CommentText,
 		}
-		if err = service.AddCommentRedis(&commentDao); err != nil {
+		if err = service.AddComment(&commentDao); err != nil {
 			// 评论失败
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
 			return
@@ -118,7 +118,7 @@ func CommentAction(c *gin.Context) {
 	}
 
 	// 删除评论
-	if err := service.DeleteCommentRedis(r.UserID, r.VideoID, r.CommentID); err != nil {
+	if err := service.DeleteComment(r.UserID, r.VideoID, r.CommentID); err != nil {
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
 		return
 	}

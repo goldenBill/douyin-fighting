@@ -2,9 +2,11 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"github.com/go-redis/redis/v8"
 	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
+	"gorm.io/gorm"
 	"strconv"
 	"time"
 )
@@ -58,6 +60,34 @@ func AddCommentRedis(comment *dao.Comment) error {
 	return err
 }
 
+func AddComment(comment *dao.Comment) error {
+	return global.DB.Transaction(func(tx *gorm.DB) error {
+		if err := global.DB.Create(comment).Error; err != nil {
+			return err
+		}
+		//尝试更新 redis 缓存；失败则删除 redis 缓存
+		if err := AddCommentInRedis(comment); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func DeleteComment(userID uint64, videoID uint64, commentID uint64) error {
+	var comment dao.Comment
+	comment.CommentID = commentID
+	return global.DB.Transaction(func(tx *gorm.DB) error {
+		if err := global.DB.Where("user_id = ? and video_id = ?", userID, videoID).Delete(&comment).Error; err != nil {
+			return err
+		}
+		//尝试更新 redis 缓存；失败则删除 redis 缓存
+		if err := DeleteCommentInRedis(videoID, commentID); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
 // DeleteCommentRedis 用户userID删除视频videoID的评论commentID
 func DeleteCommentRedis(userID uint64, videoID uint64, commentID uint64) error {
 	var comment dao.Comment
@@ -109,7 +139,7 @@ func DeleteCommentRedis(userID uint64, videoID uint64, commentID uint64) error {
 
 // GetCommentListAndUserListRedis 获取评论列表和对应的用户列表
 func GetCommentListAndUserListRedis(videoID uint64, commentList *[]dao.Comment, userList *[]dao.User) error {
-	keyCommentsOfVideo := "CommentsOfVideo:" + strconv.FormatUint(videoID, 10)
+	keyCommentsOfVideo := fmt.Sprintf(VideoCommentsPattern, videoID)
 	n, err := global.REDIS.Exists(global.CONTEXT, keyCommentsOfVideo).Result()
 	if err != nil {
 		return err
@@ -145,7 +175,7 @@ func GetCommentListAndUserListRedis(videoID uint64, commentList *[]dao.Comment, 
 
 	for _, commentIDStr := range commentIDStrList {
 		commentID, err := strconv.ParseUint(commentIDStr, 10, 64)
-		keyComment := "Comment:" + commentIDStr
+		keyComment := fmt.Sprintf(CommentPattern, commentID)
 		if err != nil {
 			continue
 		}
