@@ -13,7 +13,3 @@ type Video struct {
 	CreatedAt     time.Time `gorm:"column:created_at" redis:"-"`
 	ExtInfo       *string   `gorm:"column:ext_info" redis:"-"`
 }
-
-func (Video) TableName() string {
-	return "videos"
-}

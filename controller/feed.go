@@ -21,10 +21,9 @@ type FeedResponse struct {
 
 // Feed video list for every request
 func Feed(c *gin.Context) {
-	//println("Feed\n\n\n")
 	// 不传latest_time默认为当前时间
-	var CurrentTimeInt int64 = time.Now().UnixMilli()
-	var CurrentTime string = strconv.FormatInt(CurrentTimeInt, 10)
+	var CurrentTimeInt = time.Now().UnixMilli()
+	var CurrentTime = strconv.FormatInt(CurrentTimeInt, 10)
 	var LatestTimeStr string = c.DefaultQuery("latest_time", CurrentTime)
 	LatestTime, err := strconv.ParseInt(LatestTimeStr, 10, 64)
 	if err != nil {
