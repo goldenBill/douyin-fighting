@@ -1,17 +1,27 @@
 # 极简版抖音
 ## 1. 配置
 - 下载[ffpmeg](https://ffmpeg.org/)，并可以在命令行运行
-- 修改initialize/mysql.go中数据库**用户名**和**密码**
-```go
-package initialize
+- 在config/config.yml中配置信息
+```yaml
+gin:
+  host: 0.0.0.0
+  port: 8080
 
-username := "root"     //账号
-password := "huangshm" //密码
-host := "127.0.0.1"    //数据库地址，可以是Ip或者域名
-port := 3306           //数据库端口
-dbName := "douyin"     //数据库名
-//dsn := "用户名:密码@tcp(地址:端口)/数据库名"
-dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", username, password, host, port, dbName)
+mysql:
+  host: localhost
+  port: 3306
+  username: root
+  password: huangshm
+  db_name: douyin
+  max_open_conns: 100
+  max_idle_conns: 10
+
+redis:
+  host: localhost
+  port: 6379
+  password:
+  db: 1
+  pool_size: 100
 ```
 - 自动生成数据库（默认开启，不会覆盖数据）
 ```go
@@ -29,7 +39,7 @@ douyin-fighting/
 ├─controller
 │     user.go           用户注册登录
 │
-├─dao
+├─model
 │     user.go           用户数据库定义
 │
 └─service
@@ -54,7 +64,7 @@ douyin-fighting/
 │     feed.go           视频推送
 │     publish.go        视频发布以及信息
 │
-├─dao
+├─model
 │     video.go          视频数据库定义
 │
 └─service
@@ -73,7 +83,7 @@ douyin-fighting/
 │     favorite.go		关于点赞的处理逻辑
 │     comment.go		关于评论的处理逻辑
 │
-├─dao
+├─model
 │     favorite.go		点赞表数据库定义
 │     comment.go		评论表数据库定义
 │
@@ -104,7 +114,7 @@ douyin-fighting/
 ├─controller
 │     relation.go
 │
-├─dao
+├─model
 │     follow.go
 │
 └─service

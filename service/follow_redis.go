@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v8"
-	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
+	"github.com/goldenBill/douyin-fighting/model"
 )
 
 func GetFollowStatusFromRedis(followerID, celebrityID uint64) (bool, error) {
@@ -15,11 +15,11 @@ func GetFollowStatusFromRedis(followerID, celebrityID uint64) (bool, error) {
 			if redis.call("Exists", KEYS[1]) <= 0 then
 				return false
 			end
+			redis.call("Expire", KEYS[1], ARGV[2])
 			local tmp = redis.call("ZScore", KEYS[1], ARGV[1])
 			if not tmp then
 				return {err = "No tracking information"}
 			end
-			redis.call("Expire", KEYS[1], ARGV[2])
 			return tmp
 			`)
 	keys := []string{followerRelationRedis}
@@ -34,7 +34,7 @@ func GetFollowStatusFromRedis(followerID, celebrityID uint64) (bool, error) {
 	}
 }
 
-func AddFollowIDListByUserIDToRedis(followerID uint64, celebrityList []dao.Follow) error {
+func AddFollowIDListByUserIDToRedis(followerID uint64, celebrityList []model.Follow) error {
 	//定义 key
 	followerRelationRedis := fmt.Sprintf(FollowerPattern, followerID)
 	// Transactional function.
@@ -274,7 +274,7 @@ func GetFollowerIDListByUserIDFromRedis(celebrityID uint64) ([]uint64, error) {
 	}
 }
 
-func AddFollowerIDListByUserIDToRedis(celebrityID uint64, followerList []dao.Follow) error {
+func AddFollowerIDListByUserIDToRedis(celebrityID uint64, followerList []model.Follow) error {
 	//定义 key
 	celebrityRelationRedis := fmt.Sprintf(CelebrityPattern, celebrityID)
 	// Transactional function.
@@ -301,12 +301,14 @@ func GetFollowCountByUserIDFromRedis(userID uint64) (int64, error) {
 	userRedis := fmt.Sprintf(UserPattern, userID)
 	lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
-					return redis.call("HGet", KEYS[1], follow_count)
+					redis.call("Expire", KEYS[1], ARGV[1])
+					return redis.call("HGet", KEYS[1], "follow_count")
 				end
 				return false
 			`)
 	keys := []string{userRedis}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys).Int64()
+	vals := []interface{}{global.USER_INFO_EXPIRE}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Int64()
 	if err == nil {
 		return result, nil
 	} else if err == redis.Nil {
@@ -321,12 +323,13 @@ func AddFollowCountByUserIDToRedis(userID uint64, followCount int64) error {
 	userRedis := fmt.Sprintf(UserPattern, userID)
 	lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
-					return redis.call("HSet", KEYS[1], follow_count, ARGV[1])
+					redis.call("Expire", KEYS[1], ARGV[2])
+					return redis.call("HSet", KEYS[1], "follow_count", ARGV[1])
 				end
 				return false
 			`)
 	keys := []string{userRedis}
-	vals := []interface{}{followCount}
+	vals := []interface{}{followCount, global.USER_INFO_EXPIRE}
 	err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Err()
 	if err == nil || err == redis.Nil {
 		return nil
@@ -340,12 +343,14 @@ func GetFollowerCountByUserIDFromRedis(userID uint64) (int64, error) {
 	userRedis := fmt.Sprintf(UserPattern, userID)
 	lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
-					return redis.call("HGet", KEYS[1], follower_count)
+					redis.call("Expire", KEYS[1], ARGV[1])
+					return redis.call("HGet", KEYS[1], "follower_count")
 				end
 				return false
 			`)
 	keys := []string{userRedis}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys).Int64()
+	vals := []interface{}{global.USER_INFO_EXPIRE}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Int64()
 	if err == nil {
 		return result, nil
 	} else if err == redis.Nil {
@@ -360,12 +365,13 @@ func AddFollowerCountByUserIDToRedis(userID uint64, followerCount int64) error {
 	userRedis := fmt.Sprintf(UserPattern, userID)
 	lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
-					return redis.call("HSet", KEYS[1], follower_count, ARGV[1])
+					redis.call("Expire", KEYS[1], ARGV[2])
+					return redis.call("HSet", KEYS[1], "follower_count", ARGV[1])
 				end
 				return false
 			`)
 	keys := []string{userRedis}
-	vals := []interface{}{followerCount}
+	vals := []interface{}{followerCount, global.USER_INFO_EXPIRE}
 	err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Err()
 	if err == nil || err == redis.Nil {
 		return nil

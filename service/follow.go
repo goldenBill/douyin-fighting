@@ -1,8 +1,8 @@
 package service
 
 import (
-	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
+	"github.com/goldenBill/douyin-fighting/model"
 )
 
 func GetFollowStatusForUpdate(followerID, celebrityID uint64) (bool, error) {
@@ -13,8 +13,8 @@ func GetFollowStatusForUpdate(followerID, celebrityID uint64) (bool, error) {
 		return false, err
 	}
 	//缓存不存在，查询数据库
-	var followList []dao.Follow
-	if result := global.DB.Select("celebrity_id", "is_follow").Model(&dao.Follow{}).
+	var followList []model.Follow
+	if result := global.DB.Select("celebrity_id", "is_follow").Model(&model.Follow{}).
 		Where("follower_id = ?", followerID).Find(&followList); result.Error != nil {
 		return false, result.Error
 	}
@@ -38,12 +38,12 @@ func AddFollow(followerID, celebrityID uint64) error {
 		if isFollow {
 			return nil
 		}
-		if err := global.DB.Model(&dao.Follow{}).Where("celebrity_id = ? and follower_id = ?", celebrityID, followerID).
+		if err := global.DB.Model(&model.Follow{}).Where("celebrity_id = ? and follower_id = ?", celebrityID, followerID).
 			Update("is_follow", true).Error; err != nil {
 			return err
 		}
 	} else if err.Error() == "No tracking information" {
-		var follow dao.Follow
+		var follow model.Follow
 		// 在关注表中新增一个条目
 		follow.FollowID, _ = global.ID_GENERATOR.NextID()
 		follow.CelebrityID = celebrityID
@@ -68,7 +68,7 @@ func CancelFollow(followerID, celebrityID uint64) error {
 		if !isFollow {
 			return nil
 		}
-		if err := global.DB.Model(&dao.Follow{}).Where("celebrity_id = ? and follower_id = ?", celebrityID, followerID).
+		if err := global.DB.Model(&model.Follow{}).Where("celebrity_id = ? and follower_id = ?", celebrityID, followerID).
 			Update("is_follow", false).Error; err != nil {
 			return err
 		}
@@ -91,8 +91,8 @@ func GetFollowIDListByUserID(followerID uint64) ([]uint64, error) {
 		return nil, err
 	}
 	//redis没找到，数据库查询
-	var followList []dao.Follow
-	if result := global.DB.Model(&dao.Follow{}).Select("celebrity_id", "is_follow").
+	var followList []model.Follow
+	if result := global.DB.Model(&model.Follow{}).Select("celebrity_id", "is_follow").
 		Where("follower_id = ?", followerID).Find(&followList); result.Error != nil {
 		return nil, result.Error
 	}
@@ -110,7 +110,7 @@ func GetFollowIDListByUserID(followerID uint64) ([]uint64, error) {
 }
 
 // GetFollowListByUserID 获取用户关注列表
-func GetFollowListByUserID(followerID uint64) ([]dao.User, error) {
+func GetFollowListByUserID(followerID uint64) ([]model.User, error) {
 	celebrityIDList, err := GetFollowIDListByUserID(followerID)
 	if err != nil {
 		return nil, err
@@ -131,8 +131,8 @@ func GetFollowerIDListByUserID(celebrityID uint64) ([]uint64, error) {
 		return nil, err
 	}
 	//redis没找到，数据库查询
-	var followerList []dao.Follow
-	result := global.DB.Model(&dao.Follow{}).Where("celebrity_id = ? and is_follow = ?", celebrityID, true).
+	var followerList []model.Follow
+	result := global.DB.Model(&model.Follow{}).Where("celebrity_id = ? and is_follow = ?", celebrityID, true).
 		Find(&followerList)
 	if result.Error != nil {
 		return nil, result.Error
@@ -150,7 +150,7 @@ func GetFollowerIDListByUserID(celebrityID uint64) ([]uint64, error) {
 }
 
 // GetFollowerListByUserID 获取用户粉丝列表
-func GetFollowerListByUserID(celebrityID uint64) ([]dao.User, error) {
+func GetFollowerListByUserID(celebrityID uint64) ([]model.User, error) {
 	followerIDList, err := GetFollowerIDListByUserID(celebrityID)
 	if err != nil {
 		return nil, err
@@ -192,7 +192,7 @@ func GetFollowCountByUserID(userID uint64) (int64, error) {
 		return 0, err
 	}
 	//缓存没有找到，数据库查询
-	err = global.DB.Model(&dao.Follow{}).Where("follower_id = ? and is_follow = ?", userID, true).
+	err = global.DB.Model(&model.Follow{}).Where("follower_id = ? and is_follow = ?", userID, true).
 		Count(&followCount).Error
 	if err != nil {
 		return 0, err
@@ -213,7 +213,7 @@ func GetFollowerCountByUserID(userID uint64) (int64, error) {
 		return 0, err
 	}
 	//缓存没有找到，数据库查询
-	err = global.DB.Model(&dao.Follow{}).Where("celebrity_id = ? and is_follow = ?", userID, true).
+	err = global.DB.Model(&model.Follow{}).Where("celebrity_id = ? and is_follow = ?", userID, true).
 		Count(&followerCount).Error
 	if err != nil {
 		return 0, err

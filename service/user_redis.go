@@ -4,17 +4,17 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v8"
-	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
+	"github.com/goldenBill/douyin-fighting/model"
 	"strconv"
 	"time"
 )
 
-func GetUserInfoByUserIDFromRedis(userID uint64) (*dao.User, error) {
+func GetUserInfoByUserIDFromRedis(userID uint64) (*model.User, error) {
 	//定义 key
 	userRedis := fmt.Sprintf(UserPattern, userID)
 
-	var user dao.User
+	var user model.User
 	if result := global.REDIS.Exists(global.CONTEXT, userRedis).Val(); result <= 0 {
 		return nil, errors.New("Not found in cache")
 	}
@@ -38,7 +38,7 @@ func GetUserInfoByUserIDFromRedis(userID uint64) (*dao.User, error) {
 	return &user, nil
 }
 
-func AddUserInfoByUserIDFromCacheToRedis(user *dao.User) error {
+func AddUserInfoByUserIDFromCacheToRedis(user *model.User) error {
 	//定义 key
 	userRedis := fmt.Sprintf(UserPattern, user.UserID)
 
@@ -57,13 +57,12 @@ func AddUserInfoByUserIDFromCacheToRedis(user *dao.User) error {
 		return nil
 	})
 	return err
-
 }
 
-func GetUserListByUserIDListFromRedis(userIDList []uint64) (userList []dao.User, notInCache []uint64, err error) {
+func GetUserListByUserIDListFromRedis(userIDList []uint64) (userList []model.User, notInCache []uint64, err error) {
 	//定义 key
 	userNum := len(userIDList)
-	userList = make([]dao.User, 0, userNum)
+	userList = make([]model.User, 0, userNum)
 	notInCache = make([]uint64, 0, userNum)
 	for _, each := range userIDList {
 		user, err2 := GetUserInfoByUserIDFromRedis(each)
@@ -73,14 +72,14 @@ func GetUserListByUserIDListFromRedis(userIDList []uint64) (userList []dao.User,
 			userList = append(userList, *user)
 		} else {
 			err = err2
-			userList = append(userList, dao.User{UserID: each})
+			userList = append(userList, model.User{UserID: each})
 			notInCache = append(notInCache, each)
 		}
 	}
 	return
 }
 
-func AddUserListByUserIDListsToRedis(userList []dao.User) error {
+func AddUserListByUserIDListsToRedis(userList []model.User) error {
 	// Transactional function.
 	_, err := global.REDIS.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
 		for _, each := range userList {

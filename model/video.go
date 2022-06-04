@@ -1,4 +1,4 @@
-package dao
+package model
 
 import "time"
 
@@ -12,4 +12,9 @@ type Video struct {
 	AuthorID      uint64    `gorm:"column:author_id;index;NOT NULL" redis:"author_id"`
 	CreatedAt     time.Time `gorm:"column:created_at;index" redis:"-"`
 	ExtInfo       *string   `gorm:"column:ext_info" redis:"-"`
+}
+
+type VideoCount struct {
+	VideoID      uint64
+	CommentCount int64
 }

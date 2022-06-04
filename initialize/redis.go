@@ -1,6 +1,7 @@
 package initialize
 
 import (
+	"fmt"
 	"github.com/go-redis/redis/v8"
 	"github.com/goldenBill/douyin-fighting/global"
 	"github.com/goldenBill/douyin-fighting/service"
@@ -8,9 +9,10 @@ import (
 
 func Redis() {
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "", // no password set
-		DB:       1,  // use default DB
+		Addr:     fmt.Sprintf("%s:%d", global.CONFIG.RedisConfig.Host, global.CONFIG.RedisConfig.Port),
+		Password: global.CONFIG.RedisConfig.Password,
+		DB:       global.CONFIG.RedisConfig.DB,
+		PoolSize: global.CONFIG.RedisConfig.PoolSize,
 	})
 	if _, err := rdb.Ping(global.CONTEXT).Result(); err != nil {
 		panic(err.Error())

@@ -2,13 +2,13 @@ package service
 
 import (
 	"errors"
-	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
+	"github.com/goldenBill/douyin-fighting/model"
 	"github.com/goldenBill/douyin-fighting/util"
 )
 
 // Register 用户注册
-func Register(username string, password string) (user *dao.User, err error) {
+func Register(username string, password string) (user *model.User, err error) {
 	//判断用户名是否存在
 	result := global.DB.Where("name = ?", username).Limit(1).Find(&user)
 	if result.RowsAffected != 0 {
@@ -23,7 +23,7 @@ func Register(username string, password string) (user *dao.User, err error) {
 }
 
 // Login 用户登录
-func Login(username string, password string) (user *dao.User, err error) {
+func Login(username string, password string) (user *model.User, err error) {
 	//检查用户名是否存在
 	result := global.DB.Where("name = ?", username).Limit(1).Find(&user)
 	if result.RowsAffected == 0 {
@@ -39,7 +39,7 @@ func Login(username string, password string) (user *dao.User, err error) {
 }
 
 // UserInfoByUserID 通过 UserID 获取用户信息
-func UserInfoByUserID(userID uint64) (user *dao.User, err error) {
+func UserInfoByUserID(userID uint64) (user *model.User, err error) {
 	//查询redis
 	user, err = GetUserInfoByUserIDFromRedis(userID)
 	if err == nil {
@@ -66,7 +66,7 @@ func UserInfoByUserID(userID uint64) (user *dao.User, err error) {
 }
 
 // GetUserListByUserIDList 根据 UserIDList 获取对应的用户列表
-func GetUserListByUserIDList(UserIDList []uint64) ([]dao.User, error) {
+func GetUserListByUserIDList(UserIDList []uint64) ([]model.User, error) {
 	//查询redis
 	userList, notInCache, err := GetUserListByUserIDListFromRedis(UserIDList)
 	if err != nil && err.Error() != "Not found in cache" {
@@ -74,13 +74,13 @@ func GetUserListByUserIDList(UserIDList []uint64) ([]dao.User, error) {
 	} else if err == nil {
 		return userList, nil
 	}
-	var uniqueUserList []dao.User
+	var uniqueUserList []model.User
 	result := global.DB.Where("user_id in ?", notInCache).Find(&uniqueUserList)
 	if result.Error != nil {
 		return nil, result.Error
 	}
 	// 针对查询结果建立映射关系
-	mapUserIDToUser := make(map[uint64]dao.User, len(uniqueUserList))
+	mapUserIDToUser := make(map[uint64]model.User, len(uniqueUserList))
 	for idx, user := range uniqueUserList {
 		uniqueUserList[idx].FollowCount, _ = GetFollowCountByUserID(user.UserID)
 		uniqueUserList[idx].FollowerCount, _ = GetFollowerCountByUserID(user.UserID)
@@ -102,23 +102,23 @@ func GetUserListByUserIDList(UserIDList []uint64) ([]dao.User, error) {
 }
 
 // GetUserListByUserIDs 根据UserIDs获取对应的用户列表
-func GetUserListByUserIDs(UserIDs []uint64, userList *[]dao.User) (err error) {
+func GetUserListByUserIDs(UserIDs []uint64, userList *[]model.User) (err error) {
 	userListPrototype, err := GetUserListByUserIDList(UserIDs)
 	*userList = userListPrototype
 	return
 }
 
 //// GetUserListByUserIDs 根据UserIDs获取对应的用户列表
-//func GetUserListByUserIDs(UserIDs []uint64, userList *[]dao.User) (err error) {
-//	var uniqueUserList []dao.User
+//func GetUserListByUserIDs(UserIDs []uint64, userList *[]model.User) (err error) {
+//	var uniqueUserList []model.User
 //	result := global.DB.Where("user_id in ?", UserIDs).Find(&uniqueUserList)
 //	if result.Error != nil {
 //		err = errors.New("query GetUserListByUserIDs error")
 //		return
 //	}
 //	// 针对查询结果建立映射关系
-//	mapUserIDToUser := make(map[uint64]dao.User)
-//	*userList = make([]dao.User, len(UserIDs))
+//	mapUserIDToUser := make(map[uint64]model.User)
+//	*userList = make([]model.User, len(UserIDs))
 //	for idx, user := range uniqueUserList {
 //		mapUserIDToUser[user.UserID] = uniqueUserList[idx]
 //	}
@@ -132,6 +132,6 @@ func GetUserListByUserIDs(UserIDs []uint64, userList *[]dao.User) (err error) {
 //// IsUserIDExist 判断 userID 是否有效
 //func IsUserIDExist(userID uint64) bool {
 //	var count int64
-//	global.DB.Model(&dao.User{}).Where("user_id = ?", userID).Count(&count)
+//	global.DB.Model(&model.User{}).Where("user_id = ?", userID).Count(&count)
 //	return count != 0
 //}

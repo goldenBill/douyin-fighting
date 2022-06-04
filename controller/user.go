@@ -38,13 +38,13 @@ func Register(c *gin.Context) {
 		return
 	}
 	//注册用户到数据库
-	userDao, err := service.Register(username, password)
+	userModel, err := service.Register(username, password)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
 	//生成对应 token
-	tokenString, err := util.GenerateToken(userDao)
+	tokenString, err := util.GenerateToken(userModel)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
@@ -52,7 +52,7 @@ func Register(c *gin.Context) {
 	//返回成功并生成响应 json
 	c.JSON(http.StatusOK, UserLoginResponse{
 		Response: Response{StatusCode: 0, StatusMsg: "OK"},
-		UserID:   userDao.UserID,
+		UserID:   userModel.UserID,
 		Token:    tokenString,
 	})
 }
@@ -62,13 +62,13 @@ func Login(c *gin.Context) {
 	username := c.Query("username")
 	password := c.Query("password")
 	//从数据库查询用户信息
-	userDao, err := service.Login(username, password)
+	userModel, err := service.Login(username, password)
 	if err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "用户名或密码错误"})
 		return
 	}
 	//生成对应 token
-	tokenString, err := util.GenerateToken(userDao)
+	tokenString, err := util.GenerateToken(userModel)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
@@ -76,7 +76,7 @@ func Login(c *gin.Context) {
 	//返回成功并生成响应 json
 	c.JSON(http.StatusOK, UserLoginResponse{
 		Response: Response{StatusCode: 0, StatusMsg: "OK"},
-		UserID:   userDao.UserID,
+		UserID:   userModel.UserID,
 		Token:    tokenString,
 	})
 }
@@ -89,7 +89,7 @@ func UserInfo(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, Response{StatusCode: 1, StatusMsg: "request is invalid"})
 		return
 	}
-	userDao, err := service.UserInfoByUserID(userID)
+	userModel, err := service.UserInfoByUserID(userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
@@ -109,9 +109,9 @@ func UserInfo(c *gin.Context) {
 		Response: Response{StatusCode: 0, StatusMsg: "OK"},
 		User: User{
 			ID:             userID,
-			Name:           userDao.Name,
-			FollowCount:    userDao.FollowCount,
-			FollowerCount:  userDao.FollowerCount,
+			Name:           userModel.Name,
+			FollowCount:    userModel.FollowCount,
+			FollowerCount:  userModel.FollowerCount,
 			TotalFavorited: totalFavorited,
 			FavoriteCount:  favoriteCount,
 			IsFollow:       isFollow,

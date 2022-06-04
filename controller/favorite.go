@@ -82,48 +82,48 @@ func FavoriteList(c *gin.Context) {
 		}
 	}
 	//获取用户的点赞列表
-	videoDaoList, err := service.GetFavoriteListByUserID(r.UserID)
+	videoModelList, err := service.GetFavoriteListByUserID(r.UserID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "get favorite list failed"})
 		return
 	}
 	//产生相应结构体
-	celebrityIDList := make([]uint64, len(videoDaoList))
-	videoIDList := make([]uint64, len(videoDaoList))
+	celebrityIDList := make([]uint64, len(videoModelList))
+	videoIDList := make([]uint64, len(videoModelList))
 	var videoList []Video
-	for idx, videoDao := range videoDaoList {
-		userDao, err := service.UserInfoByUserID(videoDao.AuthorID)
+	for idx, each := range videoModelList {
+		userModel, err := service.UserInfoByUserID(each.AuthorID)
 		if err != nil {
 			continue
 		}
 		var author = User{
-			ID:             videoDao.AuthorID,
-			Name:           userDao.Name,
-			FollowCount:    userDao.FollowCount,
-			FollowerCount:  userDao.FollowerCount,
-			TotalFavorited: userDao.TotalFavorited,
-			FavoriteCount:  userDao.FavoriteCount,
+			ID:             each.AuthorID,
+			Name:           userModel.Name,
+			FollowCount:    userModel.FollowCount,
+			FollowerCount:  userModel.FollowerCount,
+			TotalFavorited: userModel.TotalFavorited,
+			FavoriteCount:  userModel.FavoriteCount,
 		}
 		var isFavorite bool // 是否对视频点赞
 		video := Video{
-			ID:            videoDao.VideoID,
+			ID:            each.VideoID,
 			Author:        author,
-			PlayUrl:       "http://" + c.Request.Host + "/static/video/" + videoDao.PlayName,
-			CoverUrl:      "http://" + c.Request.Host + "/static/cover/" + videoDao.CoverName,
-			FavoriteCount: videoDao.FavoriteCount,
-			CommentCount:  videoDao.CommentCount,
+			PlayUrl:       "http://" + c.Request.Host + "/static/video/" + each.PlayName,
+			CoverUrl:      "http://" + c.Request.Host + "/static/cover/" + each.CoverName,
+			FavoriteCount: each.FavoriteCount,
+			CommentCount:  each.CommentCount,
 			IsFavorite:    isFavorite,
 		}
 		videoList = append(videoList, video)
-		celebrityIDList[idx] = videoDao.AuthorID
-		videoIDList[idx] = videoDao.VideoID
+		celebrityIDList[idx] = each.AuthorID
+		videoIDList[idx] = each.VideoID
 	}
 	// 批量处理
 	if isLogin {
 		// 登录时，获取是否关注，否则总是为false
 		isFollowList, _ := service.GetFollowStatusList(userID, celebrityIDList)
 		isFavoriteList, _ := service.GetFavoriteStatusList(userID, videoIDList)
-		for i := 0; i < len(videoDaoList); i++ {
+		for i := 0; i < len(videoModelList); i++ {
 			videoList[i].Author.IsFollow = isFollowList[i]
 			videoList[i].IsFavorite = isFavoriteList[i]
 		}

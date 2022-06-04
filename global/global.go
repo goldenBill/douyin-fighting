@@ -3,6 +3,7 @@ package global
 import (
 	"context"
 	"github.com/go-redis/redis/v8"
+	"github.com/goldenBill/douyin-fighting/config"
 	"github.com/sony/sonyflake"
 	"gorm.io/gorm"
 	"sync"
@@ -10,6 +11,7 @@ import (
 )
 
 var (
+	CONFIG               config.System
 	DB                   *gorm.DB
 	REDIS                *redis.Client
 	CONTEXT              = context.Background()

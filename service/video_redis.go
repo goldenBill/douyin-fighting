@@ -1,11 +1,10 @@
 package service
 
 import (
-	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v8"
-	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
+	"github.com/goldenBill/douyin-fighting/model"
 	"strconv"
 )
 
@@ -19,22 +18,15 @@ func GoPublishRedis(userID uint64, listZ ...*redis.Z) error {
 	return err
 }
 
-func CheckVideo(videoID uint64) error {
-	keyVideo := fmt.Sprintf(VideoPattern, videoID)
-	n, err := global.REDIS.Exists(global.CONTEXT, keyVideo).Result()
-	if err != nil {
-		return err
+func GoVideoList(videoList []model.Video) error {
+	pipe := global.REDIS.TxPipeline()
+	for _, video := range videoList {
+		keyVideo := fmt.Sprintf(VideoPattern, video.VideoID)
+		pipe.HSet(global.CONTEXT, keyVideo, "title", video.Title, "play_name", video.PlayName, "cover_name", video.CoverName,
+			"favorite_count", video.FavoriteCount, "comment_count", video.CommentCount, "author_id", video.AuthorID, "created_at", video.CreatedAt.UnixMilli())
+		pipe.Expire(global.CONTEXT, keyVideo, global.VIDEO_EXPIRE)
 	}
-	if n <= 0 {
-		// "video_id"不存在
-		var video dao.Video
-		result := global.DB.Where("video_id = ?", videoID).Limit(1).Find(&video)
-		if result.Error != nil || result.RowsAffected == 0 {
-			return errors.New("Redis出错或videoID不存在")
-		}
-		// 写redis Video:videoID
-		err = GoVideo(&video)
-	}
+	_, err := pipe.Exec(global.CONTEXT)
 	return err
 }
 
@@ -45,7 +37,7 @@ func GoFeed() error {
 	}
 	if n <= 0 {
 		// "feed"不存在
-		var allVideos []dao.Video
+		var allVideos []model.Video
 		if err := global.DB.Find(&allVideos).Error; err != nil {
 			return err
 		}
@@ -61,31 +53,21 @@ func GoFeed() error {
 	return nil
 }
 
-func GoVideo(video *dao.Video) error {
-	keyVideo := "Video:" + strconv.FormatUint(video.VideoID, 10)
-	pipe := global.REDIS.TxPipeline()
-	pipe.HSet(global.CONTEXT, keyVideo, "title", video.Title, "play_name", video.PlayName, "cover_name", video.CoverName,
-		"favorite_count", video.FavoriteCount, "comment_count", video.CommentCount, "author_id", video.AuthorID, "created_at", video.CreatedAt.UnixMilli())
-	pipe.Expire(global.CONTEXT, keyVideo, global.VIDEO_EXPIRE)
-	_, err := pipe.Exec(global.CONTEXT)
-	return err
-}
-
-func PublishEvent(keyPublish string, video dao.Video, listZ ...*redis.Z) error {
+func PublishEvent(keyPublish string, video model.Video, listZ ...*redis.Z) error {
 	keyVideo := fmt.Sprintf("Video:%d", video.VideoID)
 	videoIDStr := strconv.FormatUint(video.VideoID, 10)
 	pipe := global.REDIS.TxPipeline()
 	pipe.ZAdd(global.CONTEXT, "feed", &redis.Z{Score: float64(video.CreatedAt.UnixMilli()) / 1000, Member: videoIDStr})
 	pipe.ZAdd(global.CONTEXT, keyPublish, listZ...)
-	pipe.HSet(global.CONTEXT, keyVideo, "author_id", video.AuthorID, "play_name", video.PlayName, "cover_name", video.CoverName,
-		"favorite_count", video.FavoriteCount, "comment_count", 0, "title", video.Title, "created_at", video.CreatedAt.UnixMilli())
 	pipe.Expire(global.CONTEXT, keyPublish, global.PUBLISH_EXPIRE)
 	pipe.Expire(global.CONTEXT, keyVideo, global.VIDEO_EXPIRE)
+	pipe.HSet(global.CONTEXT, keyVideo, "author_id", video.AuthorID, "play_name", video.PlayName, "cover_name", video.CoverName,
+		"favorite_count", video.FavoriteCount, "comment_count", 0, "title", video.Title, "created_at", video.CreatedAt.UnixMilli())
 	_, err := pipe.Exec(global.CONTEXT)
 	return err
 }
 
-func GoCommentsOfVideo(commentList []dao.Comment, keyCommentsOfVideo string) error {
+func GoCommentsOfVideo(commentList []model.Comment, keyCommentsOfVideo string) error {
 	var listZ = make([]*redis.Z, 0, len(commentList))
 	for _, comment := range commentList {
 		listZ = append(listZ, &redis.Z{Score: float64(comment.CreatedAt.UnixMilli()) / 1000, Member: comment.CommentID})

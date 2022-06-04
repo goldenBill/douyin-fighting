@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v8"
-	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
+	"github.com/goldenBill/douyin-fighting/model"
 )
 
 func GetFavoriteStatusFromRedis(userID, videoID uint64) (bool, error) {
@@ -15,11 +15,11 @@ func GetFavoriteStatusFromRedis(userID, videoID uint64) (bool, error) {
 			if redis.call("Exists", KEYS[1]) <= 0 then
 				return false
 			end
+			redis.call("Expire", KEYS[1], ARGV[2])
 			local tmp = redis.call("ZScore", KEYS[1], ARGV[1])
 			if not tmp then
 				return {err = "No tracking information"}
 			end
-			redis.call("Expire", KEYS[1], ARGV[2])
 			return tmp
 			`)
 	keys := []string{userFavoriteRedis}
@@ -34,7 +34,7 @@ func GetFavoriteStatusFromRedis(userID, videoID uint64) (bool, error) {
 	}
 }
 
-func AddFavoriteVideoIDListByUserIDToRedis(userID uint64, favoriteList []dao.Favorite) error {
+func AddFavoriteVideoIDListByUserIDToRedis(userID uint64, favoriteList []model.Favorite) error {
 	//定义 key
 	userFavoriteRedis := fmt.Sprintf(UserFavoritePattern, userID)
 	// Transactional function.
@@ -257,12 +257,14 @@ func GetFavoriteCountByVideoIDFromRedis(videoID uint64) (int64, error) {
 	videoRedis := fmt.Sprintf(VideoPattern, videoID)
 	lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
-					return redis.call("HGet", KEYS[1], favorite_count)
+					redis.call("Expire", KEYS[1], ARGV[1])
+					return redis.call("HGet", KEYS[1], "favorite_count")
 				end
 				return false
 			`)
 	keys := []string{videoRedis}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys).Int64()
+	vals := []interface{}{global.VIDEO_EXPIRE.Seconds()}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Int64()
 	if err == nil {
 		return result, nil
 	} else if err == redis.Nil {
@@ -277,12 +279,13 @@ func AddFavoriteCountByVideoIDToRedis(videoID uint64, favoriteCount int64) error
 	videoRedis := fmt.Sprintf(VideoPattern, videoID)
 	lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
-					return redis.call("HSet", KEYS[1], favorite_count, ARGV[1])
+					redis.call("Expire", KEYS[1], ARGV[2])
+					return redis.call("HSet", KEYS[1], "favorite_count", ARGV[1])
 				end
 				return false
 			`)
 	keys := []string{videoRedis}
-	vals := []interface{}{favoriteCount}
+	vals := []interface{}{favoriteCount, global.VIDEO_EXPIRE}
 	err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Err()
 	if err == nil || err == redis.Nil {
 		return nil
@@ -291,7 +294,7 @@ func AddFavoriteCountByVideoIDToRedis(videoID uint64, favoriteCount int64) error
 	}
 }
 
-func GetFavoriteCountListByUVideoIDListFromRedis(videoIDList []uint64) (favoriteCountList []int64, notInCache []uint64, err error) {
+func GetFavoriteCountListByVideoIDListFromRedis(videoIDList []uint64) (favoriteCountList []int64, notInCache []uint64, err error) {
 	//定义 key
 	userNum := len(videoIDList)
 	favoriteCountList = make([]int64, 0, userNum)
@@ -311,7 +314,7 @@ func GetFavoriteCountListByUVideoIDListFromRedis(videoIDList []uint64) (favorite
 	return
 }
 
-func AddFavoriteCountListByUVideoIDListToCache(videoList []dao.Video) error {
+func AddFavoriteCountListByUVideoIDListToCache(videoList []VideoFavoriteCountAPI) error {
 	// Transactional function.
 	for _, each := range videoList {
 		if err := AddFavoriteCountByVideoIDToRedis(each.VideoID, each.FavoriteCount); err != nil {
@@ -326,12 +329,14 @@ func GetFavoriteCountByUserIDFromRedis(userID uint64) (int64, error) {
 	userRedis := fmt.Sprintf(UserPattern, userID)
 	lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
-					return redis.call("HGet", KEYS[1], favorite_count)
+					redis.call("Expire", KEYS[1], ARGV[1])
+					return redis.call("HGet", KEYS[1], "favorite_count")
 				end
 				return false
 			`)
 	keys := []string{userRedis}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys).Int64()
+	vals := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Int64()
 	if err == nil {
 		return result, nil
 	} else if err == redis.Nil {
@@ -346,12 +351,13 @@ func AddFavoriteCountByUserIDToRedis(userID uint64, favoriteCount int64) error {
 	userRedis := fmt.Sprintf(UserPattern, userID)
 	lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
-					return redis.call("HSet", KEYS[1], favorite_count, ARGV[1])
+					redis.call("Expire", KEYS[1], ARGV[1])
+					return redis.call("HSet", KEYS[1], "favorite_count", ARGV[1])
 				end
 				return false
 			`)
 	keys := []string{userRedis}
-	vals := []interface{}{favoriteCount}
+	vals := []interface{}{favoriteCount, global.USER_INFO_EXPIRE}
 	err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Err()
 	if err == nil || err == redis.Nil {
 		return nil
@@ -365,12 +371,14 @@ func GetTotalFavoritedByUserIDFromRedis(userID uint64) (int64, error) {
 	userRedis := fmt.Sprintf(UserPattern, userID)
 	lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
-					return redis.call("HGet", KEYS[1], total_favorited)
+					redis.call("Expire", KEYS[1], ARGV[1])
+					return redis.call("HGet", KEYS[1], "total_favorited")
 				end
 				return false
 			`)
 	keys := []string{userRedis}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys).Int64()
+	vals := []interface{}{global.USER_INFO_EXPIRE}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Int64()
 	if err == nil {
 		return result, nil
 	} else if err == redis.Nil {
@@ -385,12 +393,13 @@ func AddTotalFavoritedByUserIDToRedis(userID uint64, favoriteCount int64) error 
 	userRedis := fmt.Sprintf(UserPattern, userID)
 	lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
-					return redis.call("HSet", KEYS[1], total_favorited, ARGV[1])
+					redis.call("Expire", KEYS[1], ARGV[2])
+					return redis.call("HSet", KEYS[1], "total_favorited", ARGV[1])
 				end
 				return false
 			`)
 	keys := []string{userRedis}
-	vals := []interface{}{favoriteCount}
+	vals := []interface{}{favoriteCount, global.USER_INFO_EXPIRE.Seconds()}
 	err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Err()
 	if err == nil || err == redis.Nil {
 		return nil

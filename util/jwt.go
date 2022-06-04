@@ -3,8 +3,8 @@ package util
 import (
 	"errors"
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
+	"github.com/goldenBill/douyin-fighting/model"
 	"time"
 )
 
@@ -15,7 +15,7 @@ type UserClaims struct {
 }
 
 // GenerateToken 生成 token
-func GenerateToken(user *dao.User) (string, error) {
+func GenerateToken(user *model.User) (string, error) {
 	//获取全局签名
 	mySigningKey := []byte(global.JWT_SigningKey)
 	//配置 userClaims ,并生成 token
