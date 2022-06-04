@@ -49,10 +49,24 @@ func UserInfoByUserID(userID uint64) (user *model.User, err error) {
 	}
 	//检查 userID 是否存在；若存在，获取用户信息
 	result := global.DB.Where("user_id = ?", userID).Limit(1).Find(&user)
-	user.FollowCount, _ = GetFollowCountByUserID(user.UserID)
-	user.FollowerCount, _ = GetFollowerCountByUserID(user.UserID)
-	user.FavoriteCount, _ = GetFavoriteCountByUserID(user.UserID)
-	user.TotalFavorited, _ = GetTotalFavoritedByUserID(user.UserID)
+	//user.FollowCount, _ = GetFollowCountByUserID(user.UserID)
+	global.DB.Model(&model.Follow{}).Where("follower_id = ? and is_follow = ?", user.UserID, true).
+		Count(&user.FollowCount)
+	//user.FollowerCount, _ = GetFollowerCountByUserID(user.UserID)
+	global.DB.Model(&model.Follow{}).Where("celebrity_id = ? and is_follow = ?", user.UserID, true).
+		Count(&user.FollowerCount)
+	//user.FavoriteCount, _ = GetFavoriteCountByUserID(user.UserID)
+	global.DB.Model(&model.Favorite{}).Where("user_id = ? and is_favorite = ?", user.UserID, true).
+		Count(&user.FavoriteCount)
+	//user.TotalFavorited, _ = GetTotalFavoritedByUserID(user.UserID)
+	var publishVideoIDList []uint64
+	_ = GetVideoIDListByUserID(user.UserID, &publishVideoIDList)
+	favoriteCountList, _ := GetFavoriteCountListByVideoIDList(publishVideoIDList)
+	var totalFavorited int64 = 0
+	for _, each := range favoriteCountList {
+		totalFavorited += each
+	}
+	user.TotalFavorited = totalFavorited
 	if result.RowsAffected == 0 {
 		err = errors.New("username does not exist")
 		return
@@ -82,10 +96,24 @@ func GetUserListByUserIDList(UserIDList []uint64) ([]model.User, error) {
 	// 针对查询结果建立映射关系
 	mapUserIDToUser := make(map[uint64]model.User, len(uniqueUserList))
 	for idx, user := range uniqueUserList {
-		uniqueUserList[idx].FollowCount, _ = GetFollowCountByUserID(user.UserID)
-		uniqueUserList[idx].FollowerCount, _ = GetFollowerCountByUserID(user.UserID)
-		uniqueUserList[idx].FavoriteCount, _ = GetFavoriteCountByUserID(user.UserID)
-		uniqueUserList[idx].TotalFavorited, _ = GetTotalFavoritedByUserID(user.UserID)
+		//uniqueUserList[idx].FollowCount, _ = GetFollowCountByUserID(user.UserID)
+		global.DB.Model(&model.Follow{}).Where("follower_id = ? and is_follow = ?", user.UserID, true).
+			Count(&uniqueUserList[idx].FollowCount)
+		//uniqueUserList[idx].FollowerCount, _ = GetFollowerCountByUserID(user.UserID)
+		global.DB.Model(&model.Follow{}).Where("celebrity_id = ? and is_follow = ?", user.UserID, true).
+			Count(&uniqueUserList[idx].FollowerCount)
+		//uniqueUserList[idx].FavoriteCount, _ = GetFavoriteCountByUserID(user.UserID)
+		global.DB.Model(&model.Favorite{}).Where("user_id = ? and is_favorite = ?", user.UserID, true).
+			Count(&uniqueUserList[idx].FavoriteCount)
+		//uniqueUserList[idx].TotalFavorited, _ = GetTotalFavoritedByUserID(user.UserID)
+		var publishVideoIDList []uint64
+		_ = GetVideoIDListByUserID(user.UserID, &publishVideoIDList)
+		favoriteCountList, _ := GetFavoriteCountListByVideoIDList(publishVideoIDList)
+		var totalFavorited int64 = 0
+		for _, each := range favoriteCountList {
+			totalFavorited += each
+		}
+		uniqueUserList[idx].TotalFavorited = totalFavorited
 		mapUserIDToUser[user.UserID] = uniqueUserList[idx]
 	}
 	//更新 redis

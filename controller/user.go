@@ -102,8 +102,6 @@ func UserInfo(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
-	totalFavorited, _ := service.GetTotalFavoritedByUserID(userID)
-	favoriteCount, _ := service.GetFollowCountByUserID(userID)
 	//返回成功并生成响应 json
 	c.JSON(http.StatusOK, UserResponse{
 		Response: Response{StatusCode: 0, StatusMsg: "OK"},
@@ -112,8 +110,8 @@ func UserInfo(c *gin.Context) {
 			Name:           userModel.Name,
 			FollowCount:    userModel.FollowCount,
 			FollowerCount:  userModel.FollowerCount,
-			TotalFavorited: totalFavorited,
-			FavoriteCount:  favoriteCount,
+			TotalFavorited: userModel.TotalFavorited,
+			FavoriteCount:  userModel.FavoriteCount,
 			IsFollow:       isFollow,
 		},
 	})

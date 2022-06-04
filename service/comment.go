@@ -187,7 +187,7 @@ func GetCommentCountListByVideoIDList(videoIDList []uint64, commentCountList *[]
 // GetCommentCountListByVideoIDListSql 被调用当且仅当VideoID不在cache中，不得不通过sql查询
 func GetCommentCountListByVideoIDListSql(videoIDList []uint64, commentCountList *[]int64) error {
 	var uniqueVideoList []model.VideoCount
-	result := global.DB.Debug().Model(&model.Comment{}).Select("video_id", "COUNT(video_id) as comment_count").
+	result := global.DB.Model(&model.Comment{}).Select("video_id", "COUNT(video_id) as comment_count").
 		Where("video_id in ?", videoIDList).Group("video_id").Find(&uniqueVideoList)
 	if result.Error != nil {
 		return result.Error
