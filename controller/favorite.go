@@ -41,7 +41,7 @@ func FavoriteAction(c *gin.Context) {
 	r.UserID = c.GetUint64("UserID")
 	// 点赞操作
 	if r.ActionType == 1 {
-		err = service.FavoriteAction(r.UserID, r.VideoID)
+		err = service.AddFavorite(r.UserID, r.VideoID)
 	} else {
 		err = service.CancelFavorite(r.UserID, r.VideoID)
 	}
@@ -121,7 +121,7 @@ func FavoriteList(c *gin.Context) {
 	// 批量处理
 	if isLogin {
 		// 登录时，获取是否关注，否则总是为false
-		isFollowList, _ := service.GetIsFollowStatusList(userID, celebrityIDList)
+		isFollowList, _ := service.GetFollowStatusList(userID, celebrityIDList)
 		isFavoriteList, _ := service.GetFavoriteStatusList(userID, videoIDList)
 		for i := 0; i < len(videoDaoList); i++ {
 			videoList[i].Author.IsFollow = isFollowList[i]

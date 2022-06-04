@@ -149,7 +149,7 @@ func PublishList(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
 		}
-		isFollowList, err = service.GetIsFollowStatusList(userID, authorIDList)
+		isFollowList, err = service.GetFollowStatusList(userID, authorIDList)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
@@ -189,8 +189,8 @@ func PublishList(c *gin.Context) {
 		videoJson.Author = authorJson
 		videoJson.PlayUrl = "http://" + c.Request.Host + "/static/video/" + video.PlayName
 		videoJson.CoverUrl = "http://" + c.Request.Host + "/static/cover/" + video.CoverName
-		videoJson.FavoriteCount = 0
-		videoJson.CommentCount = 0
+		videoJson.FavoriteCount = video.FavoriteCount
+		videoJson.CommentCount = video.CommentCount
 		videoJson.Title = video.Title
 		videoJson.IsFavorite = isFavorite
 

@@ -12,7 +12,7 @@ import (
 
 func AddComment(comment *dao.Comment) error {
 	return global.DB.Transaction(func(tx *gorm.DB) error {
-		if err := global.DB.Create(comment).Error; err != nil {
+		if err := tx.Create(comment).Error; err != nil {
 			return err
 		}
 		//尝试更新 redis 缓存；失败则删除 redis 缓存
@@ -27,7 +27,7 @@ func DeleteComment(userID uint64, videoID uint64, commentID uint64) error {
 	var comment dao.Comment
 	comment.CommentID = commentID
 	return global.DB.Transaction(func(tx *gorm.DB) error {
-		if err := global.DB.Where("user_id = ? and video_id = ?", userID, videoID).Delete(&comment).Error; err != nil {
+		if err := tx.Where("user_id = ? and video_id = ?", userID, videoID).Delete(&comment).Error; err != nil {
 			return err
 		}
 		//尝试更新 redis 缓存；失败则删除 redis 缓存
@@ -124,9 +124,84 @@ func GetCommentListAndUserListRedis(videoID uint64, commentList *[]dao.Comment, 
 	return GetUserListByUserIDs(authorIDList, userList)
 }
 
-func GoComment(comment dao.Comment) error {
-	keyComment := "Comment:" + strconv.FormatUint(comment.CommentID, 10)
-	err := global.REDIS.HSet(global.CONTEXT, keyComment, "video_id", comment.VideoID,
-		"user_id", comment.UserID, "content", comment.Content, "created_at", comment.CreatedAt.UnixMilli()).Err()
-	return err
+// GetCommentCountListByVideoIDList 被调用当我们不知道videoID是否在redis中
+func GetCommentCountListByVideoIDList(videoIDList []uint64, commentCountList *[]int64) error {
+	//查询redis
+	numVideos := len(videoIDList)
+	notInCacheIDList := make([]uint64, 0, numVideos)
+	*commentCountList = make([]int64, numVideos)
+	inCache := make([]bool, numVideos)
+	for i, videoID := range videoIDList {
+		keyVideo := fmt.Sprintf(VideoPattern, videoID)
+		n, err := global.REDIS.Exists(global.CONTEXT, keyVideo).Result()
+		if err != nil {
+			return err
+		}
+		if n <= 0 {
+			keyCommentsOfVideo := fmt.Sprintf(VideoCommentsPattern, videoID)
+			n, err = global.REDIS.Exists(global.CONTEXT, keyCommentsOfVideo).Result()
+			if err != nil {
+				return err
+			}
+			// Video与CommentsOfVideo都不存在
+			if n <= 0 {
+				notInCacheIDList = append(notInCacheIDList, videoID)
+				inCache[i] = false
+				continue
+			}
+			// Video不存在但是CommentsOfVideo存在
+			commentCount, err := global.REDIS.ZCard(global.CONTEXT, keyCommentsOfVideo).Uint64()
+			if err != nil {
+				return err
+			}
+			(*commentCountList)[i] = int64(commentCount)
+			inCache[i] = true
+			continue
+		}
+		// 缓存存在
+		commentCount, err := global.REDIS.HGet(global.CONTEXT, keyVideo, "comment_count").Int64()
+		if err != nil {
+			return err
+		}
+		(*commentCountList)[i] = commentCount
+		inCache[i] = true
+	}
+	if len(notInCacheIDList) == 0 {
+		return nil
+	}
+	//缓存没有找到，数据库查询
+	var commentCountListNotInCache []int64
+	if err := GetCommentCountListByVideoIDListSql(notInCacheIDList, &commentCountListNotInCache); err != nil {
+		return err
+	}
+	idxNotInCache := 0
+	for i, _ := range *commentCountList {
+		if inCache[i] == false {
+			(*commentCountList)[i] = commentCountListNotInCache[idxNotInCache]
+			idxNotInCache++
+		}
+	}
+	return nil
+}
+
+// GetCommentCountListByVideoIDListSql 被调用当且仅当VideoID不在cache中，不得不通过sql查询
+func GetCommentCountListByVideoIDListSql(videoIDList []uint64, commentCountList *[]int64) error {
+	var uniqueVideoList []dao.VideoCount
+	result := global.DB.Debug().Model(&dao.Comment{}).Select("video_id", "COUNT(video_id) as comment_count").
+		Where("video_id in ?", videoIDList).Group("video_id").Find(&uniqueVideoList)
+	if result.Error != nil {
+		return result.Error
+	}
+	//fmt.Println(uniqueVideoList)
+	numVideos := result.RowsAffected
+	// 针对查询结果建立映射关系
+	*commentCountList = make([]int64, 0, numVideos)
+	mapVideoIDToCommentCount := make(map[uint64]int64, numVideos)
+	for _, each := range uniqueVideoList {
+		mapVideoIDToCommentCount[each.VideoID] = each.CommentCount
+	}
+	for _, videoID := range videoIDList {
+		*commentCountList = append(*commentCountList, mapVideoIDToCommentCount[videoID])
+	}
+	return nil
 }

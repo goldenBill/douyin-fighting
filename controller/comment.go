@@ -91,7 +91,7 @@ func CommentAction(c *gin.Context) {
 			return
 		}
 		// 批量判断用户是否关注
-		isFollow, err := service.GetIsFollowStatus(r.UserID, userDao.UserID)
+		isFollow, err := service.GetFollowStatus(r.UserID, userDao.UserID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
@@ -167,7 +167,7 @@ func CommentList(c *gin.Context) {
 			authorIDList[i] = user_.UserID
 		}
 		// 批量判断用户是否关注评论的作者
-		isFollowList, err = service.GetIsFollowStatusList(userID, authorIDList)
+		isFollowList, err = service.GetFollowStatusList(userID, authorIDList)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return

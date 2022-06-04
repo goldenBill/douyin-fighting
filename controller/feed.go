@@ -87,7 +87,7 @@ func Feed(c *gin.Context) {
 			return
 		}
 		// 批量获取用户是否关注作者
-		isFollowList, err = service.GetIsFollowStatusList(userID, authorIDList)
+		isFollowList, err = service.GetFollowStatusList(userID, authorIDList)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
@@ -128,8 +128,8 @@ func Feed(c *gin.Context) {
 		videoJson.Author = authorJson
 		videoJson.PlayUrl = "http://" + c.Request.Host + "/static/video/" + video.PlayName
 		videoJson.CoverUrl = "http://" + c.Request.Host + "/static/cover/" + video.CoverName
-		videoJson.FavoriteCount = 0
-		videoJson.CommentCount = 0
+		videoJson.FavoriteCount = video.FavoriteCount
+		videoJson.CommentCount = video.CommentCount
 		videoJson.Title = video.Title
 		videoJson.IsFavorite = isFavorite
 

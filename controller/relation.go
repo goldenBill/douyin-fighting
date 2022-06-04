@@ -87,7 +87,7 @@ func FollowList(c *gin.Context) {
 	// 批量处理
 	if isLogin {
 		// 登录时，获取是否关注，否则总是为false
-		isFollowList, _ := service.GetIsFollowStatusList(viewerID, celebrityIDList)
+		isFollowList, _ := service.GetFollowStatusList(viewerID, celebrityIDList)
 		for idx, isFollow := range isFollowList {
 			userList[idx].IsFollow = isFollow
 		}
@@ -131,7 +131,7 @@ func FollowerList(c *gin.Context) {
 		isFollow := false
 		if isLogin {
 			// 登录时，获取是否关注，否则总是为false
-			isFollow, _ = service.GetIsFollowStatus(viewerID, follower.UserID)
+			isFollow, _ = service.GetFollowStatus(viewerID, follower.UserID)
 		}
 		var user = User{
 			ID:            follower.UserID,

@@ -13,3 +13,8 @@ type Video struct {
 	CreatedAt     time.Time `gorm:"column:created_at;index" redis:"-"`
 	ExtInfo       *string   `gorm:"column:ext_info" redis:"-"`
 }
+
+type VideoCount struct {
+	VideoID      uint64
+	CommentCount int64
+}

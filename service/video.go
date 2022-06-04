@@ -97,14 +97,31 @@ func GetPublishedVideosAndAuthorsRedis(videoList *[]dao.Video, authors *[]dao.Us
 	}
 	if n <= 0 {
 		// "publish userid"不存在
+		// 因为有序集合插入时需要video的创建时间当做score，所以不能只查主键
 		result := global.DB.Where("author_id = ?", userID).Find(videoList)
 		numVideos := int(result.RowsAffected)
+
 		if result.Error != nil || numVideos == 0 {
 			return 0, err
 		}
 		var listZ = make([]*redis.Z, 0, numVideos)
+		var videoIDList = make([]uint64, 0, numVideos)
 		for _, video_ := range *videoList {
 			listZ = append(listZ, &redis.Z{Score: float64(video_.CreatedAt.UnixMilli()) / 1000, Member: video_.VideoID})
+			videoIDList = append(videoIDList, video_.VideoID)
+		}
+		// 批量查找favorite_count
+		favoriteCountList, err := GetFavoriteCountListByVideoIDList(videoIDList)
+		if err != nil {
+			return 0, err
+		}
+		var commentCountList []int64
+		if err = GetCommentCountListByVideoIDList(videoIDList, &commentCountList); err != nil {
+			return 0, err
+		}
+		for i, _ := range *videoList {
+			(*videoList)[i].FavoriteCount = favoriteCountList[i]
+			(*videoList)[i].CommentCount = commentCountList[i]
 		}
 		// 写入publish：userid
 		if err = GoPublishRedis(userID, listZ...); err != nil {
@@ -153,25 +170,24 @@ func GetPublishedVideosAndAuthorsRedis(videoList *[]dao.Video, authors *[]dao.Us
 
 // GetVideoListByIDsRedis 给定视频ID列表得到对应的视频信息
 func GetVideoListByIDsRedis(videoList *[]dao.Video, videoIDs []uint64) error {
-	*videoList = make([]dao.Video, 0, len(videoIDs))
+	numVideos := len(videoIDs)
+	*videoList = make([]dao.Video, 0, numVideos)
+	inCache := make([]bool, 0, numVideos)
+	notInCacheIDList := make([]uint64, 0, numVideos)
 	for _, videoID := range videoIDs {
 		keyVideo := fmt.Sprintf(VideoPattern, videoID)
 		n, err := global.REDIS.Exists(global.CONTEXT, keyVideo).Result()
 		if err != nil {
 			return err
 		}
-		var video dao.Video
 		if n <= 0 {
-			result := global.DB.Where("video_id = ?", videoID).Limit(1).Find(&video)
-			if result.Error != nil || result.RowsAffected == 0 {
-				return errors.New("GetVideoListByIDsRedis fail")
-			}
-			if err = GoVideo(&video); err != nil {
-				return err
-			}
-			*videoList = append(*videoList, video)
+			*videoList = append(*videoList, dao.Video{})
+			inCache = append(inCache, false)
+			notInCacheIDList = append(notInCacheIDList, videoID)
 			continue
 		}
+		// video存在
+		var video dao.Video
 		if err = global.REDIS.Expire(global.CONTEXT, keyVideo, global.VIDEO_EXPIRE).Err(); err != nil {
 			return err
 		}
@@ -189,8 +205,60 @@ func GetVideoListByIDsRedis(videoList *[]dao.Video, videoIDs []uint64) error {
 		}
 		video.CreatedAt = time.UnixMilli(timeUnixMilli)
 		*videoList = append(*videoList, video)
+		inCache = append(inCache, true)
 	}
+	// 批量查找不在redis的video
+	var notInCacheVideoList []dao.Video
+	fmt.Println(notInCacheIDList)
+	if err := GetVideoListByIDsSql(&notInCacheVideoList, notInCacheIDList); err != nil {
+		return err
+	}
+	fmt.Println(notInCacheVideoList, "$$$\n\n\n")
+	// 将不在redis中的video填入返回值
+	idxNotInCache := 0
+	for i, _ := range *videoList {
+		if inCache[i] == false {
+			(*videoList)[i] = notInCacheVideoList[idxNotInCache]
+			idxNotInCache++
+		}
+	}
+
 	return nil
+}
+
+// GetVideoListByIDsSql 被调用当videoID不在redis中，我们不得不查sql
+func GetVideoListByIDsSql(videoList *[]dao.Video, videoIDs []uint64) error {
+	//fmt.Println("here\n\n")
+	var uniqueVideoList []dao.Video
+	result := global.DB.Where("video_id in ?", videoIDs).Find(&uniqueVideoList)
+	if result.Error != nil {
+		return result.Error
+	}
+	numVideos := result.RowsAffected
+	// 针对查询结果建立映射关系
+	*videoList = make([]dao.Video, 0, numVideos)
+	mapVideoIDToVideo := make(map[uint64]dao.Video, numVideos)
+	for _, video := range uniqueVideoList {
+		mapVideoIDToVideo[video.VideoID] = video
+	}
+	// 查询favorite_count与comment_count
+	var commentCountList []int64
+	if err := GetCommentCountListByVideoIDListSql(videoIDs, &commentCountList); err != nil {
+		return err
+	}
+	//fmt.Println(commentCountList)
+	favoriteCountList, err := GetFavoriteCountListByVideoIDList(videoIDs)
+	if err != nil {
+		return err
+	}
+	fmt.Println(commentCountList, favoriteCountList, "%%%%\n\n\n")
+	for i, videoID := range videoIDs {
+		tmpVideo := mapVideoIDToVideo[videoID]
+		tmpVideo.FavoriteCount = favoriteCountList[i]
+		tmpVideo.CommentCount = commentCountList[i]
+		*videoList = append(*videoList, tmpVideo)
+	}
+	return GoVideoList(*videoList)
 }
 
 func GetVideoIDListByUserID(userID uint64, videoIDList *[]uint64) error {
