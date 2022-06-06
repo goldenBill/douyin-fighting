@@ -207,6 +207,9 @@ func GetVideoListByIDsRedis(videoList *[]model.Video, videoIDs []uint64) error {
 		*videoList = append(*videoList, video)
 		inCache = append(inCache, true)
 	}
+	if len(notInCacheIDList) == 0 {
+		return nil
+	}
 	// 批量查找不在redis的video
 	var notInCacheVideoList []model.Video
 	if err := GetVideoListByIDsSql(&notInCacheVideoList, notInCacheIDList); err != nil {

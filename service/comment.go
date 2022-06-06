@@ -47,6 +47,15 @@ func GetCommentListAndUserListRedis(videoID uint64, commentList *[]model.Comment
 	}
 	if n <= 0 {
 		//	CommentsOfVideo:id 不存在
+		// 先去 keyVideo 中check comment_count是否为0
+		numComments, err := GetCommentCountOfVideo(videoID)
+		if err != nil {
+			return err
+		}
+		if numComments == 0 {
+			return nil
+		}
+		// 不止一条comment或key不存在的话查表
 		result := global.DB.Where("video_id = ?", videoID).Find(commentList)
 		if result.Error != nil {
 			return err
@@ -55,9 +64,14 @@ func GetCommentListAndUserListRedis(videoID uint64, commentList *[]model.Comment
 			return nil
 		}
 		// 成功
-		numComments := int(result.RowsAffected)
+		numComments = int(result.RowsAffected)
 		if err = GoCommentsOfVideo(*commentList, keyCommentsOfVideo); err != nil {
 			return err
+		}
+		for _, comment := range *commentList {
+			if err = GoComment(comment); err != nil {
+				return err
+			}
 		}
 		authorIDList := make([]uint64, numComments)
 		for i, comment := range *commentList {

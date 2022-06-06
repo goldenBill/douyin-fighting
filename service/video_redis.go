@@ -62,7 +62,7 @@ func PublishEvent(keyPublish string, video model.Video, listZ ...*redis.Z) error
 	pipe.Expire(global.CONTEXT, keyPublish, global.PUBLISH_EXPIRE)
 	pipe.Expire(global.CONTEXT, keyVideo, global.VIDEO_EXPIRE)
 	pipe.HSet(global.CONTEXT, keyVideo, "author_id", video.AuthorID, "play_name", video.PlayName, "cover_name", video.CoverName,
-		"favorite_count", video.FavoriteCount, "comment_count", 0, "title", video.Title, "created_at", video.CreatedAt.UnixMilli())
+		"favorite_count", video.FavoriteCount, "comment_count", video.CommentCount, "title", video.Title, "created_at", video.CreatedAt.UnixMilli())
 	_, err := pipe.Exec(global.CONTEXT)
 	return err
 }
@@ -77,4 +77,24 @@ func GoCommentsOfVideo(commentList []model.Comment, keyCommentsOfVideo string) e
 	pipe.Expire(global.CONTEXT, keyCommentsOfVideo, global.VIDEO_COMMENTS_EXPIRE)
 	_, err := pipe.Exec(global.CONTEXT)
 	return err
+}
+
+func GetCommentCountOfVideo(videoID uint64) (int, error) {
+	keyVideo := fmt.Sprintf(VideoPattern, videoID)
+	lua := redis.NewScript(`
+				local key = KEYS[1]
+				local expire_time = ARGV[1]
+				if redis.call("Exists", key) > 0 then
+					redis.call("Expire", key, expire_time)
+					return redis.call("HGet", key, "comment_count")
+				end
+				return -1
+			`)
+	keys := []string{keyVideo}
+	vals := []interface{}{global.VIDEO_COMMENTS_EXPIRE.Seconds()}
+	numComments, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Int()
+	if err != nil {
+		return 0, err
+	}
+	return numComments, nil
 }
