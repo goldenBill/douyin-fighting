@@ -16,7 +16,7 @@ func GetUserInfoByUserIDFromRedis(userID uint64) (*model.User, error) {
 
 	var user model.User
 	if result := global.REDIS.Exists(global.CONTEXT, userRedis).Val(); result <= 0 {
-		return nil, errors.New("Not found in cache")
+		return nil, errors.New("not found in cache")
 	}
 	// Transactional function.
 	cmds, err := global.REDIS.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
@@ -66,7 +66,7 @@ func GetUserListByUserIDListFromRedis(userIDList []uint64) (userList []model.Use
 	notInCache = make([]uint64, 0, userNum)
 	for _, each := range userIDList {
 		user, err2 := GetUserInfoByUserIDFromRedis(each)
-		if err2 != nil && err2.Error() != "Not found in cache" {
+		if err2 != nil && err2.Error() != "not found in cache" {
 			return nil, nil, err2
 		} else if err2 == nil {
 			userList = append(userList, *user)

@@ -18,17 +18,17 @@ func GetFollowStatusFromRedis(followerID, celebrityID uint64) (bool, error) {
 			redis.call("Expire", KEYS[1], ARGV[2])
 			local tmp = redis.call("ZScore", KEYS[1], ARGV[1])
 			if not tmp then
-				return {err = "No tracking information"}
+				return {err = "no tracking information"}
 			end
 			return tmp
 			`)
 	keys := []string{followerRelationRedis}
-	vals := []interface{}{celebrityID, global.FOLLOW_EXPIRE.Seconds()}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+	values := []interface{}{celebrityID, global.FOLLOW_EXPIRE.Seconds()}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 	if err == nil {
 		return result, nil
 	} else if err == redis.Nil {
-		return false, errors.New("Not found in cache")
+		return false, errors.New("not found in cache")
 	} else {
 		return false, err
 	}
@@ -74,8 +74,8 @@ func AddFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{followerRelationRedis}
-		vals := []interface{}{celebrityID, global.FOLLOW_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{celebrityID, global.FOLLOW_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
@@ -92,8 +92,8 @@ func AddFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{celebrityRelationRedis}
-		vals := []interface{}{followerID, global.FOLLOW_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{followerID, global.FOLLOW_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
@@ -110,8 +110,8 @@ func AddFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{followerRedis}
-		vals := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
@@ -128,8 +128,8 @@ func AddFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{celebrityRedis}
-		vals := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
@@ -161,8 +161,8 @@ func CancelFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{followerRelationRedis}
-		vals := []interface{}{celebrityID, global.FOLLOW_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{celebrityID, global.FOLLOW_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
@@ -179,8 +179,8 @@ func CancelFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{celebrityRelationRedis}
-		vals := []interface{}{followerID, global.FOLLOW_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{followerID, global.FOLLOW_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
@@ -197,8 +197,8 @@ func CancelFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{followerRedis}
-		vals := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
@@ -215,8 +215,8 @@ func CancelFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{celebrityRedis}
-		vals := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
@@ -241,12 +241,12 @@ func GetFollowIDListByUserIDFromRedis(followerID uint64) ([]uint64, error) {
 			return redis.call("ZRangeByScore", KEYS[1], 1, 1)
 			`)
 	keys := []string{followerRelationRedis}
-	vals := []interface{}{global.FOLLOW_EXPIRE.Seconds()}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Uint64Slice()
+	values := []interface{}{global.FOLLOW_EXPIRE.Seconds()}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Uint64Slice()
 	if err == nil {
 		return result, nil
 	} else if err == redis.Nil {
-		return nil, errors.New("Not found in cache")
+		return nil, errors.New("not found in cache")
 	} else {
 		return nil, err
 	}
@@ -263,12 +263,12 @@ func GetFollowerIDListByUserIDFromRedis(celebrityID uint64) ([]uint64, error) {
 			return redis.call("ZRangeByScore", KEYS[1], 1, 1)
 			`)
 	keys := []string{celebrityRelationRedis}
-	vals := []interface{}{global.FOLLOW_EXPIRE.Seconds()}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Uint64Slice()
+	values := []interface{}{global.FOLLOW_EXPIRE.Seconds()}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Uint64Slice()
 	if err == nil {
 		return result, nil
 	} else if err == redis.Nil {
-		return nil, errors.New("Not found in cache")
+		return nil, errors.New("not found in cache")
 	} else {
 		return nil, err
 	}
@@ -307,12 +307,12 @@ func GetFollowCountByUserIDFromRedis(userID uint64) (int64, error) {
 				return false
 			`)
 	keys := []string{userRedis}
-	vals := []interface{}{global.USER_INFO_EXPIRE}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Int64()
+	values := []interface{}{global.USER_INFO_EXPIRE}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Int64()
 	if err == nil {
 		return result, nil
 	} else if err == redis.Nil {
-		return 0, errors.New("Not found in cache")
+		return 0, errors.New("not found in cache")
 	} else {
 		return 0, err
 	}
@@ -329,8 +329,8 @@ func AddFollowCountByUserIDToRedis(userID uint64, followCount int64) error {
 				return false
 			`)
 	keys := []string{userRedis}
-	vals := []interface{}{followCount, global.USER_INFO_EXPIRE}
-	err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Err()
+	values := []interface{}{followCount, global.USER_INFO_EXPIRE}
+	err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Err()
 	if err == nil || err == redis.Nil {
 		return nil
 	} else {
@@ -349,12 +349,12 @@ func GetFollowerCountByUserIDFromRedis(userID uint64) (int64, error) {
 				return false
 			`)
 	keys := []string{userRedis}
-	vals := []interface{}{global.USER_INFO_EXPIRE}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Int64()
+	values := []interface{}{global.USER_INFO_EXPIRE}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Int64()
 	if err == nil {
 		return result, nil
 	} else if err == redis.Nil {
-		return 0, errors.New("Not found in cache")
+		return 0, errors.New("not found in cache")
 	} else {
 		return 0, err
 	}
@@ -371,8 +371,8 @@ func AddFollowerCountByUserIDToRedis(userID uint64, followerCount int64) error {
 				return false
 			`)
 	keys := []string{userRedis}
-	vals := []interface{}{followerCount, global.USER_INFO_EXPIRE}
-	err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Err()
+	values := []interface{}{followerCount, global.USER_INFO_EXPIRE}
+	err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Err()
 	if err == nil || err == redis.Nil {
 		return nil
 	} else {

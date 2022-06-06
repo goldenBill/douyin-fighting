@@ -18,17 +18,17 @@ func GetFavoriteStatusFromRedis(userID, videoID uint64) (bool, error) {
 			redis.call("Expire", KEYS[1], ARGV[2])
 			local tmp = redis.call("ZScore", KEYS[1], ARGV[1])
 			if not tmp then
-				return {err = "No tracking information"}
+				return {err = "no tracking information"}
 			end
 			return tmp
 			`)
 	keys := []string{userFavoriteRedis}
-	vals := []interface{}{videoID, global.FAVORITE_EXPIRE.Seconds()}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+	values := []interface{}{videoID, global.FAVORITE_EXPIRE.Seconds()}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 	if err == nil {
 		return result, nil
 	} else if err == redis.Nil {
-		return false, errors.New("Not found in cache")
+		return false, errors.New("not found in cache")
 	} else {
 		return false, err
 	}
@@ -74,8 +74,8 @@ func AddFavoriteForRedis(videoID, userID, authorID uint64) error {
 				return false
 			`)
 		keys := []string{userFavoriteRedis}
-		vals := []interface{}{videoID, global.FAVORITE_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{videoID, global.FAVORITE_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
@@ -92,8 +92,8 @@ func AddFavoriteForRedis(videoID, userID, authorID uint64) error {
 				return false
 			`)
 		keys := []string{userRedis}
-		vals := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
@@ -110,8 +110,8 @@ func AddFavoriteForRedis(videoID, userID, authorID uint64) error {
 				return false
 			`)
 		keys := []string{authorRedis}
-		vals := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
@@ -128,8 +128,8 @@ func AddFavoriteForRedis(videoID, userID, authorID uint64) error {
 				return false
 			`)
 		keys := []string{videoRedis}
-		vals := []interface{}{global.VIDEO_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{global.VIDEO_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
@@ -161,8 +161,8 @@ func CancelFavoriteForRedis(videoID, userID, authorID uint64) error {
 				return false
 			`)
 		keys := []string{userFavoriteRedis}
-		vals := []interface{}{videoID, global.FAVORITE_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{videoID, global.FAVORITE_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
@@ -179,8 +179,8 @@ func CancelFavoriteForRedis(videoID, userID, authorID uint64) error {
 				return false
 			`)
 		keys := []string{userRedis}
-		vals := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
@@ -197,8 +197,8 @@ func CancelFavoriteForRedis(videoID, userID, authorID uint64) error {
 				return false
 			`)
 		keys := []string{authorRedis}
-		vals := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
@@ -215,8 +215,8 @@ func CancelFavoriteForRedis(videoID, userID, authorID uint64) error {
 				return false
 			`)
 		keys := []string{videoRedis}
-		vals := []interface{}{global.VIDEO_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{global.VIDEO_EXPIRE.Seconds()}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
@@ -241,12 +241,12 @@ func GetFavoriteVideoIDListByUserIDFromRedis(userID uint64) ([]uint64, error) {
 			return redis.call("ZRangeByScore", KEYS[1], 1, 1)
 			`)
 	keys := []string{userFavoriteRedis}
-	vals := []interface{}{global.FAVORITE_EXPIRE.Seconds()}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Uint64Slice()
+	values := []interface{}{global.FAVORITE_EXPIRE.Seconds()}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Uint64Slice()
 	if err == nil {
 		return result, nil
 	} else if err == redis.Nil {
-		return nil, errors.New("Not found in cache")
+		return nil, errors.New("not found in cache")
 	} else {
 		return nil, err
 	}
@@ -263,12 +263,12 @@ func GetFavoriteCountByVideoIDFromRedis(videoID uint64) (int64, error) {
 				return false
 			`)
 	keys := []string{videoRedis}
-	vals := []interface{}{global.VIDEO_EXPIRE.Seconds()}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Int64()
+	values := []interface{}{global.VIDEO_EXPIRE.Seconds()}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Int64()
 	if err == nil {
 		return result, nil
 	} else if err == redis.Nil {
-		return 0, errors.New("Not found in cache")
+		return 0, errors.New("not found in cache")
 	} else {
 		return 0, err
 	}
@@ -285,8 +285,8 @@ func AddFavoriteCountByVideoIDToRedis(videoID uint64, favoriteCount int64) error
 				return false
 			`)
 	keys := []string{videoRedis}
-	vals := []interface{}{favoriteCount, global.VIDEO_EXPIRE}
-	err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Err()
+	values := []interface{}{favoriteCount, global.VIDEO_EXPIRE}
+	err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Err()
 	if err == nil || err == redis.Nil {
 		return nil
 	} else {
@@ -301,7 +301,7 @@ func GetFavoriteCountListByVideoIDListFromRedis(videoIDList []uint64) (favoriteC
 	notInCache = make([]uint64, 0, userNum)
 	for _, each := range videoIDList {
 		favoriteCount, err2 := GetFavoriteCountByVideoIDFromRedis(each)
-		if err2 != nil && err2.Error() != "Not found in cache" {
+		if err2 != nil && err2.Error() != "not found in cache" {
 			return nil, nil, err2
 		} else if err2 == nil {
 			favoriteCountList = append(favoriteCountList, favoriteCount)
@@ -335,12 +335,12 @@ func GetFavoriteCountByUserIDFromRedis(userID uint64) (int64, error) {
 				return false
 			`)
 	keys := []string{userRedis}
-	vals := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Int64()
+	values := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Int64()
 	if err == nil {
 		return result, nil
 	} else if err == redis.Nil {
-		return 0, errors.New("Not found in cache")
+		return 0, errors.New("not found in cache")
 	} else {
 		return 0, err
 	}
@@ -357,8 +357,8 @@ func AddFavoriteCountByUserIDToRedis(userID uint64, favoriteCount int64) error {
 				return false
 			`)
 	keys := []string{userRedis}
-	vals := []interface{}{favoriteCount, global.USER_INFO_EXPIRE}
-	err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Err()
+	values := []interface{}{favoriteCount, global.USER_INFO_EXPIRE}
+	err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Err()
 	if err == nil || err == redis.Nil {
 		return nil
 	} else {
@@ -377,12 +377,12 @@ func GetTotalFavoritedByUserIDFromRedis(userID uint64) (int64, error) {
 				return false
 			`)
 	keys := []string{userRedis}
-	vals := []interface{}{global.USER_INFO_EXPIRE}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Int64()
+	values := []interface{}{global.USER_INFO_EXPIRE}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Int64()
 	if err == nil {
 		return result, nil
 	} else if err == redis.Nil {
-		return 0, errors.New("Not found in cache")
+		return 0, errors.New("not found in cache")
 	} else {
 		return 0, err
 	}
@@ -399,8 +399,8 @@ func AddTotalFavoritedByUserIDToRedis(userID uint64, favoriteCount int64) error 
 				return false
 			`)
 	keys := []string{userRedis}
-	vals := []interface{}{favoriteCount, global.USER_INFO_EXPIRE.Seconds()}
-	err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Err()
+	values := []interface{}{favoriteCount, global.USER_INFO_EXPIRE.Seconds()}
+	err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Err()
 	if err == nil || err == redis.Nil {
 		return nil
 	} else {

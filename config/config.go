@@ -17,7 +17,7 @@ type MySQLConfig struct {
 	MaxIdleConns int    `mapstructure:"max_idle_conns"`
 }
 
-//定义 redis 配置文件结构体
+// RedisConfig 定义 redis 配置文件结构体
 type RedisConfig struct {
 	Host     string `mapstructure:"host"`
 	Port     int    `mapstructure:"port"`
@@ -26,7 +26,7 @@ type RedisConfig struct {
 	PoolSize int    `mapstructure:"pool_size"`
 }
 
-//定义项目配置文件结构体
+// System 定义项目配置文件结构体
 type System struct {
 	GinConfig   *GinConfig   `mapstructure:"gin"`
 	MySQLConfig *MySQLConfig `mapstructure:"mysql"`

@@ -10,7 +10,7 @@ func GetFavoriteStatusForUpdate(userID, videoID uint64) (bool, error) {
 	favoriteStatus, err := GetFavoriteStatusFromRedis(userID, videoID)
 	if err == nil {
 		return favoriteStatus, nil
-	} else if err.Error() != "Not found in cache" {
+	} else if err.Error() != "not found in cache" {
 		return false, err
 	}
 	//缓存不存在，查询数据库
@@ -28,7 +28,7 @@ func GetFavoriteStatusForUpdate(userID, videoID uint64) (bool, error) {
 
 func GetFavoriteStatus(userID, videoID uint64) (bool, error) {
 	isFavorite, err := GetFavoriteStatusForUpdate(userID, videoID)
-	if err == nil || err.Error() == "No tracking information" {
+	if err == nil || err.Error() == "no tracking information" {
 		return isFavorite, nil
 	}
 	return false, err
@@ -43,7 +43,7 @@ func AddFavorite(userID, videoID uint64) error {
 			Update("is_favorite", true).Error; err != nil {
 			return err
 		}
-	} else if err.Error() == "No tracking information" {
+	} else if err.Error() == "no tracking information" {
 		var favorite model.Favorite
 		//数据库
 		favorite.FavoriteID, _ = global.ID_GENERATOR.NextID()
@@ -105,7 +105,7 @@ func GetFavoriteVideoIDListByUserID(userID uint64) ([]uint64, error) {
 	favoriteVideoIDList, err := GetFavoriteVideoIDListByUserIDFromRedis(userID)
 	if err == nil {
 		return favoriteVideoIDList, nil
-	} else if err.Error() != "Not found in cache" {
+	} else if err.Error() != "not found in cache" {
 		return nil, err
 	}
 	//redis没找到，数据库查询
@@ -167,7 +167,7 @@ func GetFavoriteCountByVideoID(videoID uint64) (int64, error) {
 	favoriteCount, err := GetFavoriteCountByVideoIDFromRedis(videoID)
 	if err == nil {
 		return favoriteCount, nil
-	} else if err.Error() != "Not found in cache" {
+	} else if err.Error() != "not found in cache" {
 		return 0, err
 	}
 	//缓存没有找到，数据库查询
@@ -188,7 +188,7 @@ func GetFavoriteCountListByVideoIDList(videoIDList []uint64) ([]int64, error) {
 	favoriteCountList, notInCache, err := GetFavoriteCountListByVideoIDListFromRedis(videoIDList)
 	if err == nil {
 		return favoriteCountList, nil
-	} else if err.Error() != "Not found in cache" {
+	} else if err.Error() != "not found in cache" {
 		return nil, err
 	}
 	//缓存没有找到，数据库查询
@@ -223,7 +223,7 @@ func GetFavoriteCountByUserID(userID uint64) (int64, error) {
 	favoriteCount, err := GetFavoriteCountByUserIDFromRedis(userID)
 	if err == nil {
 		return favoriteCount, nil
-	} else if err.Error() != "Not found in cache" {
+	} else if err.Error() != "not found in cache" {
 		return 0, err
 	}
 	//缓存没有找到，数据库查询
@@ -244,7 +244,7 @@ func GetTotalFavoritedByUserID(userID uint64) (int64, error) {
 	totalFavorited, err := GetTotalFavoritedByUserIDFromRedis(userID)
 	if err == nil {
 		return totalFavorited, nil
-	} else if err.Error() != "Not found in cache" {
+	} else if err.Error() != "not found in cache" {
 		return 0, err
 	}
 	//缓存不存在

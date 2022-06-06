@@ -44,7 +44,7 @@ func UserInfoByUserID(userID uint64) (user *model.User, err error) {
 	user, err = GetUserInfoByUserIDFromRedis(userID)
 	if err == nil {
 		return
-	} else if err.Error() != "Not found in cache" {
+	} else if err.Error() != "not found in cache" {
 		return nil, err
 	}
 	//检查 userID 是否存在；若存在，获取用户信息
@@ -83,7 +83,7 @@ func UserInfoByUserID(userID uint64) (user *model.User, err error) {
 func GetUserListByUserIDList(UserIDList []uint64) ([]model.User, error) {
 	//查询redis
 	userList, notInCache, err := GetUserListByUserIDListFromRedis(UserIDList)
-	if err != nil && err.Error() != "Not found in cache" {
+	if err != nil && err.Error() != "not found in cache" {
 		return nil, err
 	} else if err == nil {
 		return userList, nil

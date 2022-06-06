@@ -10,12 +10,12 @@ import (
 	"time"
 )
 
+// AddComment 添加评论，若redis添加失败则mysql回滚
 func AddComment(comment *model.Comment) error {
 	return global.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(comment).Error; err != nil {
 			return err
 		}
-		//尝试更新 redis 缓存；失败则删除 redis 缓存
 		if err := AddCommentInRedis(comment); err != nil {
 			return err
 		}
@@ -23,14 +23,15 @@ func AddComment(comment *model.Comment) error {
 	})
 }
 
+// DeleteComment 删除评论，弱redis修改失败则mysql回滚
 func DeleteComment(userID uint64, videoID uint64, commentID uint64) error {
 	var comment model.Comment
 	comment.CommentID = commentID
 	return global.DB.Transaction(func(tx *gorm.DB) error {
+		// user_id与video_id用来确保有权限删除（用户只能删除自己的视频）
 		if err := tx.Where("user_id = ? and video_id = ?", userID, videoID).Delete(&comment).Error; err != nil {
 			return err
 		}
-		//尝试更新 redis 缓存；失败则删除 redis 缓存
 		if err := DeleteCommentInRedis(videoID, commentID); err != nil {
 			return err
 		}
@@ -52,10 +53,11 @@ func GetCommentListAndUserListRedis(videoID uint64, commentList *[]model.Comment
 		if err != nil {
 			return err
 		}
+		// 当视频没有评论时提前返回，省去查表操作
 		if numComments == 0 {
 			return nil
 		}
-		// 不止一条comment或key不存在的话查表
+		// 不止一条comment且key不存在的话查表
 		result := global.DB.Where("video_id = ?", videoID).Find(commentList)
 		if result.Error != nil {
 			return err
@@ -65,6 +67,7 @@ func GetCommentListAndUserListRedis(videoID uint64, commentList *[]model.Comment
 		}
 		// 成功
 		numComments = int(result.RowsAffected)
+		// 将此次查表得到的数据写入redis
 		if err = GoCommentsOfVideo(*commentList, keyCommentsOfVideo); err != nil {
 			return err
 		}
@@ -73,6 +76,7 @@ func GetCommentListAndUserListRedis(videoID uint64, commentList *[]model.Comment
 				return err
 			}
 		}
+		// 得到评论作者id
 		authorIDList := make([]uint64, numComments)
 		for i, comment := range *commentList {
 			authorIDList[i] = comment.UserID
@@ -189,7 +193,7 @@ func GetCommentCountListByVideoIDList(videoIDList []uint64, commentCountList *[]
 		return err
 	}
 	idxNotInCache := 0
-	for i, _ := range *commentCountList {
+	for i := range *commentCountList {
 		if inCache[i] == false {
 			(*commentCountList)[i] = commentCountListNotInCache[idxNotInCache]
 			idxNotInCache++

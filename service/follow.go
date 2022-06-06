@@ -9,7 +9,7 @@ func GetFollowStatusForUpdate(followerID, celebrityID uint64) (bool, error) {
 	followStatus, err := GetFollowStatusFromRedis(followerID, celebrityID)
 	if err == nil {
 		return followStatus, nil
-	} else if err.Error() != "Not found in cache" {
+	} else if err.Error() != "not found in cache" {
 		return false, err
 	}
 	//缓存不存在，查询数据库
@@ -27,7 +27,7 @@ func GetFollowStatusForUpdate(followerID, celebrityID uint64) (bool, error) {
 
 func GetFollowStatus(followerID, celebrityID uint64) (bool, error) {
 	followStatus, err := GetFollowStatusForUpdate(followerID, celebrityID)
-	if err == nil || err.Error() == "No tracking information" {
+	if err == nil || err.Error() == "no tracking information" {
 		return followStatus, nil
 	}
 	return false, err
@@ -42,7 +42,7 @@ func AddFollow(followerID, celebrityID uint64) error {
 			Update("is_follow", true).Error; err != nil {
 			return err
 		}
-	} else if err.Error() == "No tracking information" {
+	} else if err.Error() == "no tracking information" {
 		var follow model.Follow
 		// 在关注表中新增一个条目
 		follow.FollowID, _ = global.ID_GENERATOR.NextID()
@@ -87,7 +87,7 @@ func GetFollowIDListByUserID(followerID uint64) ([]uint64, error) {
 	celebrityIDList, err := GetFollowIDListByUserIDFromRedis(followerID)
 	if err == nil {
 		return celebrityIDList, nil
-	} else if err.Error() != "Not found in cache" {
+	} else if err.Error() != "not found in cache" {
 		return nil, err
 	}
 	//redis没找到，数据库查询
@@ -127,7 +127,7 @@ func GetFollowerIDListByUserID(celebrityID uint64) ([]uint64, error) {
 	followerIDList, err := GetFollowerIDListByUserIDFromRedis(celebrityID)
 	if err == nil {
 		return followerIDList, nil
-	} else if err.Error() != "Not found in cache" {
+	} else if err.Error() != "not found in cache" {
 		return nil, err
 	}
 	//redis没找到，数据库查询
@@ -188,7 +188,7 @@ func GetFollowCountByUserID(userID uint64) (int64, error) {
 	followCount, err := GetFollowCountByUserIDFromRedis(userID)
 	if err == nil {
 		return followCount, nil
-	} else if err.Error() != "Not found in cache" {
+	} else if err.Error() != "not found in cache" {
 		return 0, err
 	}
 	//缓存没有找到，数据库查询
@@ -209,7 +209,7 @@ func GetFollowerCountByUserID(userID uint64) (int64, error) {
 	followerCount, err := GetFollowerCountByUserIDFromRedis(userID)
 	if err == nil {
 		return followerCount, nil
-	} else if err.Error() != "Not found in cache" {
+	} else if err.Error() != "not found in cache" {
 		return 0, err
 	}
 	//缓存没有找到，数据库查询
