@@ -207,13 +207,14 @@ func GetVideoListByIDsRedis(videoList *[]dao.Video, videoIDs []uint64) error {
 		*videoList = append(*videoList, video)
 		inCache = append(inCache, true)
 	}
+	if len(notInCacheIDList) == 0 {
+		return nil
+	}
 	// 批量查找不在redis的video
 	var notInCacheVideoList []dao.Video
-	fmt.Println(notInCacheIDList)
 	if err := GetVideoListByIDsSql(&notInCacheVideoList, notInCacheIDList); err != nil {
 		return err
 	}
-	fmt.Println(notInCacheVideoList, "$$$\n\n\n")
 	// 将不在redis中的video填入返回值
 	idxNotInCache := 0
 	for i, _ := range *videoList {

@@ -62,7 +62,7 @@ func PublishEvent(keyPublish string, video dao.Video, listZ ...*redis.Z) error {
 	pipe.Expire(global.CONTEXT, keyPublish, global.PUBLISH_EXPIRE)
 	pipe.Expire(global.CONTEXT, keyVideo, global.VIDEO_EXPIRE)
 	pipe.HSet(global.CONTEXT, keyVideo, "author_id", video.AuthorID, "play_name", video.PlayName, "cover_name", video.CoverName,
-		"favorite_count", video.FavoriteCount, "comment_count", 0, "title", video.Title, "created_at", video.CreatedAt.UnixMilli())
+		"favorite_count", video.FavoriteCount, "comment_count", video.CommentCount, "title", video.Title, "created_at", video.CreatedAt.UnixMilli())
 	_, err := pipe.Exec(global.CONTEXT)
 	return err
 }
