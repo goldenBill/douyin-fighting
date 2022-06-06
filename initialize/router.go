@@ -1,8 +1,10 @@
 package initialize
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/goldenBill/douyin-fighting/controller"
+	"github.com/goldenBill/douyin-fighting/global"
 	"github.com/goldenBill/douyin-fighting/middleware"
 )
 
@@ -50,5 +52,5 @@ func Router() {
 		authed2.POST("/publish/action/", controller.Publish)
 	}
 
-	r.Run() // listen and serve on 0.0.0.0:8080 (for windows
+	r.Run(fmt.Sprintf("%s:%d", global.CONFIG.GinConfig.Host, global.CONFIG.GinConfig.Port))
 }

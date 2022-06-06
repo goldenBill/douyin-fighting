@@ -2,8 +2,8 @@ package service
 
 import (
 	"errors"
-	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
+	"github.com/goldenBill/douyin-fighting/model"
 )
 
 func GetFavoriteStatusForUpdate(userID, videoID uint64) (bool, error) {
@@ -14,8 +14,8 @@ func GetFavoriteStatusForUpdate(userID, videoID uint64) (bool, error) {
 		return false, err
 	}
 	//缓存不存在，查询数据库
-	var favoriteList []dao.Favorite
-	if result := global.DB.Select("video_id", "is_favorite").Model(&dao.Favorite{}).
+	var favoriteList []model.Favorite
+	if result := global.DB.Select("video_id", "is_favorite").Model(&model.Favorite{}).
 		Where("user_id = ?", userID).Find(&favoriteList); result.Error != nil {
 		return false, result.Error
 	}
@@ -39,12 +39,12 @@ func AddFavorite(userID, videoID uint64) error {
 		if isFavorite {
 			return nil
 		}
-		if err := global.DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).
+		if err := global.DB.Model(&model.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).
 			Update("is_favorite", true).Error; err != nil {
 			return err
 		}
 	} else if err.Error() == "No tracking information" {
-		var favorite dao.Favorite
+		var favorite model.Favorite
 		//数据库
 		favorite.FavoriteID, _ = global.ID_GENERATOR.NextID()
 		favorite.VideoID = videoID
@@ -58,7 +58,7 @@ func AddFavorite(userID, videoID uint64) error {
 		return err
 	}
 	// 查询视频作者
-	var video dao.Video
+	var video model.Video
 	if result := global.DB.Select("author_id").Where("video_id = ?", videoID).Limit(1).
 		Find(&video); result.Error != nil {
 		return result.Error
@@ -78,7 +78,7 @@ func CancelFavorite(userID, videoID uint64) error {
 		if !isFavorite {
 			return nil
 		}
-		if err := global.DB.Model(&dao.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).
+		if err := global.DB.Model(&model.Favorite{}).Where("user_id = ? and video_id = ?", userID, videoID).
 			Update("is_favorite", false).Error; err != nil {
 			return err
 		}
@@ -86,7 +86,7 @@ func CancelFavorite(userID, videoID uint64) error {
 		return err
 	}
 	// 查询视频作者
-	var video dao.Video
+	var video model.Video
 	if result := global.DB.Select("author_id").Where("video_id = ?", videoID).Limit(1).
 		Find(&video); result.Error != nil {
 		return result.Error
@@ -109,8 +109,8 @@ func GetFavoriteVideoIDListByUserID(userID uint64) ([]uint64, error) {
 		return nil, err
 	}
 	//redis没找到，数据库查询
-	var favoriteList []dao.Favorite
-	if result := global.DB.Select("video_id", "is_favorite").Model(&dao.Favorite{}).
+	var favoriteList []model.Favorite
+	if result := global.DB.Select("video_id", "is_favorite").Model(&model.Favorite{}).
 		Where("user_id = ?", userID).Find(&favoriteList); result.Error != nil {
 		return nil, result.Error
 	}
@@ -127,18 +127,18 @@ func GetFavoriteVideoIDListByUserID(userID uint64) ([]uint64, error) {
 }
 
 // GetFavoriteListByUserID 获取用户点赞列表
-func GetFavoriteListByUserID(userID uint64) ([]dao.Video, error) {
+func GetFavoriteListByUserID(userID uint64) ([]model.Video, error) {
 	favoriteVideoIDList, err := GetFavoriteVideoIDListByUserID(userID)
 	if err != nil {
 		return nil, err
 	}
 	//后续处理
-	var videoDaoList []dao.Video
-	err = GetVideoListByIDsRedis(&videoDaoList, favoriteVideoIDList)
+	var videoList []model.Video
+	err = GetVideoListByIDsRedis(&videoList, favoriteVideoIDList)
 	if err != nil {
 		return nil, err
 	}
-	return videoDaoList, nil
+	return videoList, nil
 }
 
 // GetFavoriteStatusList 根据 userID 和 videoIDList 返回点赞状态（列表）
@@ -171,7 +171,7 @@ func GetFavoriteCountByVideoID(videoID uint64) (int64, error) {
 		return 0, err
 	}
 	//缓存没有找到，数据库查询
-	err = global.DB.Model(&dao.Favorite{}).Where("video_id = ? and is_favorite = ?", videoID, true).
+	err = global.DB.Model(&model.Favorite{}).Where("video_id = ? and is_favorite = ?", videoID, true).
 		Count(&favoriteCount).Error
 	if err != nil {
 		return 0, err
@@ -192,9 +192,9 @@ func GetFavoriteCountListByVideoIDList(videoIDList []uint64) ([]int64, error) {
 		return nil, err
 	}
 	//缓存没有找到，数据库查询
-	var uniqueVideoList []dao.Video
-	result := global.DB.Model(&dao.Favorite{}).Select("video_id", "COUNT(video_id) as favorite_count").
-		Where("video_id in ? and is_favorite = ?", notInCache, true).Find(&uniqueVideoList)
+	var uniqueVideoList []VideoFavoriteCountAPI
+	result := global.DB.Model(&model.Favorite{}).Select("video_id", "COUNT(video_id) as favorite_count").
+		Where("video_id in ? and is_favorite = ?", notInCache, true).Group("video_id").Find(&uniqueVideoList)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -226,18 +226,11 @@ func GetFavoriteCountByUserID(userID uint64) (int64, error) {
 	} else if err.Error() != "Not found in cache" {
 		return 0, err
 	}
-	//缓存不存在
-	favoriteVideoIDList, err := GetFavoriteVideoIDListByUserID(userID)
+	//缓存没有找到，数据库查询
+	err = global.DB.Model(&model.Favorite{}).Where("user_id = ? and is_favorite = ?", userID, true).
+		Count(&favoriteCount).Error
 	if err != nil {
 		return 0, err
-	}
-	favoriteCountList, err := GetFavoriteCountListByVideoIDList(favoriteVideoIDList)
-	if err != nil {
-		return 0, err
-	}
-	favoriteCount = 0
-	for _, each := range favoriteCountList {
-		favoriteCount += each
 	}
 	//更新缓存
 	if err = AddFavoriteCountByUserIDToRedis(userID, favoriteCount); err != nil {

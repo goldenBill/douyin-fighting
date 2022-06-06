@@ -2,8 +2,8 @@ package controller
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
+	"github.com/goldenBill/douyin-fighting/model"
 	"github.com/goldenBill/douyin-fighting/service"
 	"github.com/goldenBill/douyin-fighting/util"
 	"net/http"
@@ -32,8 +32,8 @@ func Feed(c *gin.Context) {
 		return
 	}
 
-	var videoList []dao.Video
-	var authorList []dao.User
+	var videoList []model.Video
+	var authorList []model.User
 	numVideos, err := service.GetFeedVideosAndAuthorsRedis(&videoList, &authorList, LatestTime, global.FEED_NUM)
 
 	if err != nil {
@@ -54,7 +54,7 @@ func Feed(c *gin.Context) {
 	var (
 		videoJsonList  = make([]Video, 0, numVideos)
 		videoJson      Video
-		author         dao.User
+		author         model.User
 		authorJson     User
 		isFavoriteList []bool
 		isFollowList   []bool

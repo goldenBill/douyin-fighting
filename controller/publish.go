@@ -2,8 +2,8 @@ package controller
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
+	"github.com/goldenBill/douyin-fighting/model"
 	"github.com/goldenBill/douyin-fighting/service"
 	"github.com/goldenBill/douyin-fighting/util"
 	"net/http"
@@ -98,8 +98,8 @@ func PublishList(c *gin.Context) {
 	// 获取 authorID
 	authorID, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
 
-	var videoList []dao.Video
-	var authorList []dao.User
+	var videoList []model.Video
+	var authorList []model.User
 	numVideos, err := service.GetPublishedVideosAndAuthorsRedis(&videoList, &authorList, authorID)
 	if err != nil {
 		//访问数据库出错
@@ -118,7 +118,7 @@ func PublishList(c *gin.Context) {
 	var (
 		videoJsonList  []Video
 		videoJson      Video
-		author         dao.User
+		author         model.User
 		authorJson     User
 		isFavoriteList []bool
 		isFollowList   []bool

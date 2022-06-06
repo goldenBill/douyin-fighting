@@ -3,14 +3,14 @@ package service
 import (
 	"errors"
 	"fmt"
-	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
+	"github.com/goldenBill/douyin-fighting/model"
 	"gorm.io/gorm"
 	"strconv"
 	"time"
 )
 
-func AddComment(comment *dao.Comment) error {
+func AddComment(comment *model.Comment) error {
 	return global.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(comment).Error; err != nil {
 			return err
@@ -24,7 +24,7 @@ func AddComment(comment *dao.Comment) error {
 }
 
 func DeleteComment(userID uint64, videoID uint64, commentID uint64) error {
-	var comment dao.Comment
+	var comment model.Comment
 	comment.CommentID = commentID
 	return global.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("user_id = ? and video_id = ?", userID, videoID).Delete(&comment).Error; err != nil {
@@ -39,7 +39,7 @@ func DeleteComment(userID uint64, videoID uint64, commentID uint64) error {
 }
 
 // GetCommentListAndUserListRedis 获取评论列表和对应的用户列表
-func GetCommentListAndUserListRedis(videoID uint64, commentList *[]dao.Comment, userList *[]dao.User) error {
+func GetCommentListAndUserListRedis(videoID uint64, commentList *[]model.Comment, userList *[]model.User) error {
 	keyCommentsOfVideo := fmt.Sprintf(VideoCommentsPattern, videoID)
 	n, err := global.REDIS.Exists(global.CONTEXT, keyCommentsOfVideo).Result()
 	if err != nil {
@@ -47,6 +47,15 @@ func GetCommentListAndUserListRedis(videoID uint64, commentList *[]dao.Comment, 
 	}
 	if n <= 0 {
 		//	CommentsOfVideo:id 不存在
+		// 先去 keyVideo 中check comment_count是否为0
+		numComments, err := GetCommentCountOfVideo(videoID)
+		if err != nil {
+			return err
+		}
+		if numComments == 0 {
+			return nil
+		}
+		// 不止一条comment或key不存在的话查表
 		result := global.DB.Where("video_id = ?", videoID).Find(commentList)
 		if result.Error != nil {
 			return err
@@ -55,7 +64,7 @@ func GetCommentListAndUserListRedis(videoID uint64, commentList *[]dao.Comment, 
 			return nil
 		}
 		// 成功
-		numComments := int(result.RowsAffected)
+		numComments = int(result.RowsAffected)
 		if err = GoCommentsOfVideo(*commentList, keyCommentsOfVideo); err != nil {
 			return err
 		}
@@ -74,7 +83,7 @@ func GetCommentListAndUserListRedis(videoID uint64, commentList *[]dao.Comment, 
 		return err
 	}
 	numComments := len(commentIDStrList)
-	*commentList = make([]dao.Comment, 0, numComments)
+	*commentList = make([]model.Comment, 0, numComments)
 	authorIDList := make([]uint64, 0, numComments)
 
 	for _, commentIDStr := range commentIDStrList {
@@ -87,7 +96,7 @@ func GetCommentListAndUserListRedis(videoID uint64, commentList *[]dao.Comment, 
 		if err != nil {
 			return err
 		}
-		var comment dao.Comment
+		var comment model.Comment
 		if n <= 0 {
 			// "comment_id"不存在
 			result := global.DB.Where("comment_id = ?", commentID).Limit(1).Find(&comment)
@@ -186,13 +195,12 @@ func GetCommentCountListByVideoIDList(videoIDList []uint64, commentCountList *[]
 
 // GetCommentCountListByVideoIDListSql 被调用当且仅当VideoID不在cache中，不得不通过sql查询
 func GetCommentCountListByVideoIDListSql(videoIDList []uint64, commentCountList *[]int64) error {
-	var uniqueVideoList []dao.VideoCount
-	result := global.DB.Debug().Model(&dao.Comment{}).Select("video_id", "COUNT(video_id) as comment_count").
+	var uniqueVideoList []model.VideoCount
+	result := global.DB.Model(&model.Comment{}).Select("video_id", "COUNT(video_id) as comment_count").
 		Where("video_id in ?", videoIDList).Group("video_id").Find(&uniqueVideoList)
 	if result.Error != nil {
 		return result.Error
 	}
-	//fmt.Println(uniqueVideoList)
 	numVideos := result.RowsAffected
 	// 针对查询结果建立映射关系
 	*commentCountList = make([]int64, 0, numVideos)

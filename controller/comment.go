@@ -2,8 +2,8 @@ package controller
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
+	"github.com/goldenBill/douyin-fighting/model"
 	"github.com/goldenBill/douyin-fighting/service"
 	"github.com/goldenBill/douyin-fighting/util"
 	"net/http"
@@ -73,25 +73,25 @@ func CommentAction(c *gin.Context) {
 			c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "生成评论ID失败"})
 			return
 		}
-		commentDao := dao.Comment{
+		commentModel := model.Comment{
 			CommentID: commentID,
 			VideoID:   r.VideoID,
 			UserID:    r.UserID,
 			Content:   r.CommentText,
 		}
-		if err = service.AddComment(&commentDao); err != nil {
+		if err = service.AddComment(&commentModel); err != nil {
 			// 评论失败
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
 			return
 		}
-		userDao, err := service.UserInfoByUserID(commentDao.UserID)
+		userModel, err := service.UserInfoByUserID(commentModel.UserID)
 		if err != nil {
 			// 未找到评论的用户
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "comment failed"})
 			return
 		}
 		// 批量判断用户是否关注
-		isFollow, err := service.GetFollowStatus(r.UserID, userDao.UserID)
+		isFollow, err := service.GetFollowStatus(r.UserID, userModel.UserID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
@@ -100,18 +100,18 @@ func CommentAction(c *gin.Context) {
 		c.JSON(http.StatusOK, CommentActionResponse{
 			Response: Response{StatusCode: 0},
 			Comment: Comment{
-				ID: commentDao.CommentID,
+				ID: commentModel.CommentID,
 				User: User{
-					ID:             userDao.UserID,
-					Name:           userDao.Name,
-					FollowCount:    userDao.FollowCount,
-					FollowerCount:  userDao.FollowerCount,
-					TotalFavorited: userDao.TotalFavorited,
-					FavoriteCount:  userDao.FavoriteCount,
+					ID:             userModel.UserID,
+					Name:           userModel.Name,
+					FollowCount:    userModel.FollowCount,
+					FollowerCount:  userModel.FollowerCount,
+					TotalFavorited: userModel.TotalFavorited,
+					FavoriteCount:  userModel.FavoriteCount,
 					IsFollow:       isFollow,
 				},
-				Content:    commentDao.Content,
-				CreateDate: commentDao.CreatedAt.Format("2006-01-02 15:04"),
+				Content:    commentModel.Content,
+				CreateDate: commentModel.CreatedAt.Format("2006-01-02 15:04"),
 			},
 		})
 		return
@@ -134,10 +134,10 @@ func CommentList(c *gin.Context) {
 		return
 	}
 
-	var commentDaoList []dao.Comment
-	var userDaoList []dao.User
+	var commentModelList []model.Comment
+	var userModelList []model.User
 	// 获取评论列表以及对应的作者
-	if err := service.GetCommentListAndUserListRedis(r.VideoID, &commentDaoList, &userDaoList); err != nil {
+	if err := service.GetCommentListAndUserListRedis(r.VideoID, &commentModelList, &userModelList); err != nil {
 		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
@@ -162,8 +162,8 @@ func CommentList(c *gin.Context) {
 
 	if isLogged {
 		// 当用户登录时 一次性获取用户是否点赞了列表中的视频以及是否关注了评论的作者
-		authorIDList := make([]uint64, len(commentDaoList))
-		for i, user_ := range userDaoList {
+		authorIDList := make([]uint64, len(commentModelList))
+		for i, user_ := range userModelList {
 			authorIDList[i] = user_.UserID
 		}
 		// 批量判断用户是否关注评论的作者
@@ -175,20 +175,20 @@ func CommentList(c *gin.Context) {
 	}
 
 	var (
-		commentJsonList = make([]Comment, 0, len(commentDaoList))
+		commentJsonList = make([]Comment, 0, len(commentModelList))
 		commentJson     Comment
 		userJson        User
-		user            dao.User
+		user            model.User
 	)
 
-	for i, comment := range commentDaoList {
+	for i, comment := range commentModelList {
 		// 未登录时默认为未关注未点赞
 		isFollow = false
 		if isLogged {
 			// 当用户登录时，判断是否关注当前作者
 			isFollow = isFollowList[i]
 		}
-		user = userDaoList[i]
+		user = userModelList[i]
 		userJson.ID = user.UserID
 		userJson.Name = user.Name
 		userJson.FollowCount = user.FollowCount

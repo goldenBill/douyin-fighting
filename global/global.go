@@ -3,6 +3,7 @@ package global
 import (
 	"context"
 	"github.com/go-redis/redis/v8"
+	"github.com/goldenBill/douyin-fighting/config"
 	"github.com/sony/sonyflake"
 	"gorm.io/gorm"
 	"sync"
@@ -10,12 +11,13 @@ import (
 )
 
 var (
+	CONFIG               config.System
 	DB                   *gorm.DB
 	REDIS                *redis.Client
 	CONTEXT              = context.Background()
 	FILE_TYPE_MAP        sync.Map
 	ID_GENERATOR         *sonyflake.Sonyflake
-	AUTO_CREATE_DB             = true                    //是否自动生成数据库
+	AUTO_CREATE_DB             = false                   //是否自动生成数据库
 	MAX_USERNAME_LENGTH        = 32                      // 用户名最大长度
 	MIN_PASSWORD_PATTERN       = "^[_a-zA-Z0-9]{6,32}$"  //密码格式
 	JWT_SigningKey             = "douyin-fighting-redis" //初始化全局签名

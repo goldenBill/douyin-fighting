@@ -3,8 +3,8 @@ package service
 import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
-	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
+	"github.com/goldenBill/douyin-fighting/model"
 	"strconv"
 )
 
@@ -18,7 +18,7 @@ func GoPublishRedis(userID uint64, listZ ...*redis.Z) error {
 	return err
 }
 
-func GoVideoList(videoList []dao.Video) error {
+func GoVideoList(videoList []model.Video) error {
 	pipe := global.REDIS.TxPipeline()
 	for _, video := range videoList {
 		keyVideo := fmt.Sprintf(VideoPattern, video.VideoID)
@@ -37,7 +37,7 @@ func GoFeed() error {
 	}
 	if n <= 0 {
 		// "feed"不存在
-		var allVideos []dao.Video
+		var allVideos []model.Video
 		if err := global.DB.Find(&allVideos).Error; err != nil {
 			return err
 		}
@@ -53,7 +53,7 @@ func GoFeed() error {
 	return nil
 }
 
-func PublishEvent(keyPublish string, video dao.Video, listZ ...*redis.Z) error {
+func PublishEvent(keyPublish string, video model.Video, listZ ...*redis.Z) error {
 	keyVideo := fmt.Sprintf("Video:%d", video.VideoID)
 	videoIDStr := strconv.FormatUint(video.VideoID, 10)
 	pipe := global.REDIS.TxPipeline()
@@ -67,7 +67,7 @@ func PublishEvent(keyPublish string, video dao.Video, listZ ...*redis.Z) error {
 	return err
 }
 
-func GoCommentsOfVideo(commentList []dao.Comment, keyCommentsOfVideo string) error {
+func GoCommentsOfVideo(commentList []model.Comment, keyCommentsOfVideo string) error {
 	var listZ = make([]*redis.Z, 0, len(commentList))
 	for _, comment := range commentList {
 		listZ = append(listZ, &redis.Z{Score: float64(comment.CreatedAt.UnixMilli()) / 1000, Member: comment.CommentID})
@@ -77,4 +77,24 @@ func GoCommentsOfVideo(commentList []dao.Comment, keyCommentsOfVideo string) err
 	pipe.Expire(global.CONTEXT, keyCommentsOfVideo, global.VIDEO_COMMENTS_EXPIRE)
 	_, err := pipe.Exec(global.CONTEXT)
 	return err
+}
+
+func GetCommentCountOfVideo(videoID uint64) (int, error) {
+	keyVideo := fmt.Sprintf(VideoPattern, videoID)
+	lua := redis.NewScript(`
+				local key = KEYS[1]
+				local expire_time = ARGV[1]
+				if redis.call("Exists", key) > 0 then
+					redis.call("Expire", key, expire_time)
+					return redis.call("HGet", key, "comment_count")
+				end
+				return -1
+			`)
+	keys := []string{keyVideo}
+	vals := []interface{}{global.VIDEO_COMMENTS_EXPIRE.Seconds()}
+	numComments, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Int()
+	if err != nil {
+		return 0, err
+	}
+	return numComments, nil
 }

@@ -3,13 +3,13 @@ package service
 import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
-	"github.com/goldenBill/douyin-fighting/dao"
 	"github.com/goldenBill/douyin-fighting/global"
+	"github.com/goldenBill/douyin-fighting/model"
 	"strconv"
 	"time"
 )
 
-func AddCommentInRedis(comment *dao.Comment) error {
+func AddCommentInRedis(comment *model.Comment) error {
 	//定义 key
 	keyCommentsOfVideo := fmt.Sprintf(VideoCommentsPattern, comment.VideoID)
 	keyComment := fmt.Sprintf(CommentPattern, comment.CommentID)
@@ -48,7 +48,6 @@ func AddCommentInRedis(comment *dao.Comment) error {
 	vals = []interface{}{global.COMMENT_EXPIRE.Seconds()}
 	_, err = lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
 	if err != nil {
-		fmt.Println(err, "$$$\n\n")
 		return err
 	}
 	// 加入comment，无需判断key是否存在
@@ -103,12 +102,24 @@ func DeleteCommentInRedis(videoID uint64, commentID uint64) error {
 	return global.REDIS.Del(global.CONTEXT, keyComment).Err()
 }
 
-func GoComment(comment dao.Comment) error {
-	keyComment := "Comment:" + strconv.FormatUint(comment.CommentID, 10)
-	pipe := global.REDIS.TxPipeline()
-	pipe.Expire(global.CONTEXT, keyComment, global.COMMENT_EXPIRE)
-	pipe.HSet(global.CONTEXT, keyComment, "video_id", comment.VideoID,
-		"user_id", comment.UserID, "content", comment.Content, "created_at", comment.CreatedAt.UnixMilli())
-	_, err := pipe.Exec(global.CONTEXT)
+func GoComment(comment model.Comment) error {
+	keyComment := fmt.Sprintf(CommentPattern, comment.CommentID)
+	lua := redis.NewScript(`
+				local key = KEYS[1]
+				local video_id = ARGV[1]
+				local user_id = ARGV[2]
+				local content = ARGV[3]
+				local created_at = ARGV[4]
+				local expire_time = ARGV[5]
+				if redis.call("Exists", key) > 0 then
+					redis.call("HSet", key, "video_id", video_id, "user_id", user_id, "content", content, "created_at", created_at)
+					redis.call("Expire", key, expire_time)
+					return 1
+				end
+				return 0
+			`)
+	keys := []string{keyComment}
+	vals := []interface{}{comment.VideoID, comment.UserID, comment.Content, comment.CreatedAt.UnixMilli(), global.COMMENT_EXPIRE.Seconds()}
+	_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
 	return err
 }
