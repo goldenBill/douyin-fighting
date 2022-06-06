@@ -68,6 +68,11 @@ func GetCommentListAndUserListRedis(videoID uint64, commentList *[]model.Comment
 		if err = GoCommentsOfVideo(*commentList, keyCommentsOfVideo); err != nil {
 			return err
 		}
+		for _, comment := range *commentList {
+			if err = GoComment(comment); err != nil {
+				return err
+			}
+		}
 		authorIDList := make([]uint64, numComments)
 		for i, comment := range *commentList {
 			authorIDList[i] = comment.UserID
