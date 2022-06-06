@@ -5,15 +5,16 @@ type void struct{}
 var member void
 
 var (
-	Header               string = ""
-	UserPattern          string = "user:%d"
-	UserFavoritePattern  string = "favorite:%d"
-	CelebrityPattern     string = "celebrity:%d"
-	FollowerPattern      string = "follower:%d"
-	VideoPattern         string = "Video:%d"
-	CommentPattern       string = "Comment:%d"
-	VideoCommentsPattern string = "CommentsOfVideo:%d"
-	PublishPattern              = "Publish:%d"
+	Header               = ""
+	UserPattern          = "user:%d"
+	UserFavoritePattern  = "favorite:%d"
+	CelebrityPattern     = "celebrity:%d"
+	FollowerPattern      = "follower:%d"
+	VideoPattern         = "Video:%d"
+	CommentPattern       = "Comment:%d"
+	VideoCommentsPattern = "CommentsOfVideo:%d"
+	PublishPattern       = "Publish:%d"
+	EmptyPattern         = "Empty:%d"
 )
 
 type VideoFavoriteCountAPI struct {

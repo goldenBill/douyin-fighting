@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// AddCommentInRedis 添加评论的redis相关操作
 func AddCommentInRedis(comment *model.Comment) error {
 	//定义 key
 	keyCommentsOfVideo := fmt.Sprintf(VideoCommentsPattern, comment.VideoID)
@@ -28,8 +29,8 @@ func AddCommentInRedis(comment *model.Comment) error {
 				return 0
 			`)
 	keys := []string{keyCommentsOfVideo}
-	vals := []interface{}{float64(comment.CreatedAt.UnixMilli()) / 1000, comment.CommentID, global.VIDEO_COMMENTS_EXPIRE.Seconds()}
-	_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+	values := []interface{}{float64(comment.CreatedAt.UnixMilli()) / 1000, comment.CommentID, global.VIDEO_COMMENTS_EXPIRE.Seconds()}
+	_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 	if err != nil {
 		return err
 	}
@@ -45,8 +46,8 @@ func AddCommentInRedis(comment *model.Comment) error {
 				return 0
 			`)
 	keys = []string{keyVideo}
-	vals = []interface{}{global.COMMENT_EXPIRE.Seconds()}
-	_, err = lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+	values = []interface{}{global.COMMENT_EXPIRE.Seconds()}
+	_, err = lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 	if err != nil {
 		return err
 	}
@@ -60,13 +61,14 @@ func AddCommentInRedis(comment *model.Comment) error {
 	return err
 }
 
+// DeleteCommentInRedis 删除评论的redis相关操作
 func DeleteCommentInRedis(videoID uint64, commentID uint64) error {
 	//定义 key
 	keyCommentsOfVideo := fmt.Sprintf(VideoCommentsPattern, videoID)
 	keyComment := fmt.Sprintf(CommentPattern, commentID)
 	keyVideo := fmt.Sprintf(VideoPattern, videoID)
 	CommentIDStr := strconv.FormatUint(commentID, 10)
-	// 判断keyCommentsOfVideo是否存在 存在则加入comment
+	// 判断keyCommentsOfVideo是否存在 存在则从有序集合中移除comment
 	lua := redis.NewScript(`
 				local key = KEYS[1]
 				local comment_id = ARGV[1]
@@ -79,12 +81,12 @@ func DeleteCommentInRedis(videoID uint64, commentID uint64) error {
 				return 0
 			`)
 	keys := []string{keyCommentsOfVideo}
-	vals := []interface{}{CommentIDStr, global.VIDEO_COMMENTS_EXPIRE.Seconds()}
-	_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+	values := []interface{}{CommentIDStr, global.VIDEO_COMMENTS_EXPIRE.Seconds()}
+	_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 	if err != nil {
 		return err
 	}
-	// 判断keyVideo是否存在，存在则comment_count加1
+	// 判断keyVideo是否存在，存在则comment_count减1
 	lua = redis.NewScript(`
 				local key = KEYS[1]
 				local expire_time = ARGV[1]
@@ -96,12 +98,13 @@ func DeleteCommentInRedis(videoID uint64, commentID uint64) error {
 				return 0
 			`)
 	keys = []string{keyVideo}
-	vals = []interface{}{global.COMMENT_EXPIRE.Seconds()}
-	_, err = lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+	values = []interface{}{global.COMMENT_EXPIRE.Seconds()}
+	_, err = lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 	// 删除comment，无需判断key是否存在
 	return global.REDIS.Del(global.CONTEXT, keyComment).Err()
 }
 
+// GoComment 函数用来将给定comment写入redis，若已在redis中则什么都不做
 func GoComment(comment model.Comment) error {
 	keyComment := fmt.Sprintf(CommentPattern, comment.CommentID)
 	lua := redis.NewScript(`
@@ -111,7 +114,7 @@ func GoComment(comment model.Comment) error {
 				local content = ARGV[3]
 				local created_at = ARGV[4]
 				local expire_time = ARGV[5]
-				if redis.call("Exists", key) > 0 then
+				if redis.call("Exists", key) <= 0 then
 					redis.call("HSet", key, "video_id", video_id, "user_id", user_id, "content", content, "created_at", created_at)
 					redis.call("Expire", key, expire_time)
 					return 1
@@ -119,7 +122,7 @@ func GoComment(comment model.Comment) error {
 				return 0
 			`)
 	keys := []string{keyComment}
-	vals := []interface{}{comment.VideoID, comment.UserID, comment.Content, comment.CreatedAt.UnixMilli(), global.COMMENT_EXPIRE.Seconds()}
-	_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+	values := []interface{}{comment.VideoID, comment.UserID, comment.Content, comment.CreatedAt.UnixMilli(), global.COMMENT_EXPIRE.Seconds()}
+	_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 	return err
 }

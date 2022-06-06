@@ -53,16 +53,20 @@ func GoFeed() error {
 	return nil
 }
 
-func PublishEvent(keyPublish string, video model.Video, listZ ...*redis.Z) error {
-	keyVideo := fmt.Sprintf("Video:%d", video.VideoID)
+func PublishEvent(video model.Video, listZ ...*redis.Z) error {
+	keyPublish := fmt.Sprintf(PublishPattern, video.AuthorID)
+	keyVideo := fmt.Sprintf(VideoPattern, video.VideoID)
+	keyEmpty := fmt.Sprintf(EmptyPattern, video.AuthorID)
 	videoIDStr := strconv.FormatUint(video.VideoID, 10)
 	pipe := global.REDIS.TxPipeline()
 	pipe.ZAdd(global.CONTEXT, "feed", &redis.Z{Score: float64(video.CreatedAt.UnixMilli()) / 1000, Member: videoIDStr})
 	pipe.ZAdd(global.CONTEXT, keyPublish, listZ...)
 	pipe.Expire(global.CONTEXT, keyPublish, global.PUBLISH_EXPIRE)
-	pipe.Expire(global.CONTEXT, keyVideo, global.VIDEO_EXPIRE)
+
 	pipe.HSet(global.CONTEXT, keyVideo, "author_id", video.AuthorID, "play_name", video.PlayName, "cover_name", video.CoverName,
 		"favorite_count", video.FavoriteCount, "comment_count", video.CommentCount, "title", video.Title, "created_at", video.CreatedAt.UnixMilli())
+	pipe.Expire(global.CONTEXT, keyVideo, global.VIDEO_EXPIRE)
+	pipe.Del(global.CONTEXT, keyEmpty)
 	_, err := pipe.Exec(global.CONTEXT)
 	return err
 }
@@ -91,10 +95,15 @@ func GetCommentCountOfVideo(videoID uint64) (int, error) {
 				return -1
 			`)
 	keys := []string{keyVideo}
-	vals := []interface{}{global.VIDEO_COMMENTS_EXPIRE.Seconds()}
-	numComments, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Int()
+	values := []interface{}{global.VIDEO_COMMENTS_EXPIRE.Seconds()}
+	numComments, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Int()
 	if err != nil {
 		return 0, err
 	}
 	return numComments, nil
+}
+
+func SetUserPublishEmpty(userID uint64) error {
+	keyEmpty := fmt.Sprintf(EmptyPattern, userID)
+	return global.REDIS.Set(global.CONTEXT, keyEmpty, "1", global.EMPTY_EXPIRE).Err()
 }

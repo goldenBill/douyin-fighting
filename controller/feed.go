@@ -24,7 +24,7 @@ func Feed(c *gin.Context) {
 	// 不传latest_time默认为当前时间
 	var CurrentTimeInt = time.Now().UnixMilli()
 	var CurrentTime = strconv.FormatInt(CurrentTimeInt, 10)
-	var LatestTimeStr string = c.DefaultQuery("latest_time", CurrentTime)
+	var LatestTimeStr = c.DefaultQuery("latest_time", CurrentTime)
 	LatestTime, err := strconv.ParseInt(LatestTimeStr, 10, 64)
 	if err != nil {
 		//无法解析latest_time

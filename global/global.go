@@ -33,7 +33,6 @@ var (
 )
 
 var (
-	MAX_RETRIES           int           = 1000
 	FAVORITE_EXPIRE       time.Duration = 10 * time.Minute
 	VIDEO_COMMENTS_EXPIRE               = 10 * time.Minute
 	COMMENT_EXPIRE                      = 10 * time.Minute
@@ -41,4 +40,5 @@ var (
 	USER_INFO_EXPIRE      time.Duration = 10 * time.Minute
 	VIDEO_EXPIRE          time.Duration = 10 * time.Minute
 	PUBLISH_EXPIRE                      = 10 * time.Minute
+	EMPTY_EXPIRE                        = 10 * time.Minute
 )

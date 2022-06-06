@@ -51,7 +51,7 @@ func GetFeedVideosAndAuthorsRedis(videoList *[]model.Video, authors *[]model.Use
 	return len(*videoList), nil
 }
 
-func PublishVideoRedis(userID uint64, videoID uint64, videoName string, coverName string, title string) error {
+func PublishVideo(userID uint64, videoID uint64, videoName string, coverName string, title string) error {
 	video := model.Video{
 		VideoID:   videoID,
 		Title:     title,
@@ -81,17 +81,23 @@ func PublishVideoRedis(userID uint64, videoID uint64, videoName string, coverNam
 		for _, video_ := range videoList {
 			listZ = append(listZ, &redis.Z{Score: float64(video_.CreatedAt.UnixMilli()) / 1000, Member: video_.VideoID})
 		}
-		return PublishEvent(keyPublish, video, listZ...)
+		return PublishEvent(video, listZ...)
 	}
 	// keyPublish存在
 	Z := redis.Z{Score: float64(video.CreatedAt.UnixMilli()) / 1000, Member: video.VideoID}
-	return PublishEvent(keyPublish, video, &Z)
+	return PublishEvent(video, &Z)
 }
 
 // GetPublishedVideosAndAuthorsRedis 按要求拉取feed视频和其作者
 func GetPublishedVideosAndAuthorsRedis(videoList *[]model.Video, authors *[]model.User, userID uint64) (int, error) {
+	keyEmpty := fmt.Sprintf(EmptyPattern, userID)
+	n, err := global.REDIS.Exists(global.CONTEXT, keyEmpty).Result()
+	if n > 0 {
+		// 当前用户没有发布过视频
+		return 0, nil
+	}
 	keyPublish := fmt.Sprintf(PublishPattern, userID)
-	n, err := global.REDIS.Exists(global.CONTEXT, keyPublish).Result()
+	n, err = global.REDIS.Exists(global.CONTEXT, keyPublish).Result()
 	if err != nil {
 		return 0, err
 	}
@@ -101,8 +107,11 @@ func GetPublishedVideosAndAuthorsRedis(videoList *[]model.Video, authors *[]mode
 		result := global.DB.Where("author_id = ?", userID).Find(videoList)
 		numVideos := int(result.RowsAffected)
 
-		if result.Error != nil || numVideos == 0 {
+		if result.Error != nil {
 			return 0, err
+		}
+		if numVideos == 0 {
+			return 0, SetUserPublishEmpty(userID)
 		}
 		var listZ = make([]*redis.Z, 0, numVideos)
 		var videoIDList = make([]uint64, 0, numVideos)
@@ -119,7 +128,7 @@ func GetPublishedVideosAndAuthorsRedis(videoList *[]model.Video, authors *[]mode
 		if err = GetCommentCountListByVideoIDList(videoIDList, &commentCountList); err != nil {
 			return 0, err
 		}
-		for i, _ := range *videoList {
+		for i := range *videoList {
 			(*videoList)[i].FavoriteCount = favoriteCountList[i]
 			(*videoList)[i].CommentCount = commentCountList[i]
 		}
@@ -217,7 +226,7 @@ func GetVideoListByIDsRedis(videoList *[]model.Video, videoIDs []uint64) error {
 	}
 	// 将不在redis中的video填入返回值
 	idxNotInCache := 0
-	for i, _ := range *videoList {
+	for i := range *videoList {
 		if inCache[i] == false {
 			(*videoList)[i] = notInCacheVideoList[idxNotInCache]
 			idxNotInCache++

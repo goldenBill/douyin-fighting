@@ -75,7 +75,7 @@ func Publish(c *gin.Context) {
 		return
 	}
 
-	err = service.PublishVideoRedis(userID, videoID, videoName, coverName, title)
+	err = service.PublishVideo(userID, videoID, videoName, coverName, title)
 
 	if err != nil {
 		// 无法写库
