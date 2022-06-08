@@ -1,0 +1,19 @@
+gin:
+  host: 0.0.0.0
+  port: 8080
+
+mysql:
+  host: localhost
+  port: 3306
+  username: root
+  password: Zxy13525812..
+  db_name: douyin
+  max_open_conns: 100
+  max_idle_conns: 10
+
+redis:
+  host: localhost
+  port: 6379
+  password:
+  db: 1
+  pool_size: 100
