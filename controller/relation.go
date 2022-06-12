@@ -8,23 +8,23 @@ import (
 	"strconv"
 )
 
+// UserListResponse 关注列表或粉丝列表请求结构体
 type UserListResponse struct {
 	Response
 	UserList []User `json:"user_list"`
 }
 
-// RelationAction no practical effect, just check if token is valid
+// RelationAction 评论操作
 func RelationAction(c *gin.Context) {
 	// 参数绑定
 	toUserID, _ := strconv.ParseUint(c.Query("to_user_id"), 10, 64)
 	actionType, _ := strconv.ParseInt(c.Query("action_type"), 10, 64)
 	// 判断 action_type 是否正确
 	if actionType != 1 && actionType != 2 {
-		// action_type 不合法
 		c.JSON(http.StatusBadRequest, Response{StatusCode: 1, StatusMsg: "action type error"})
 		return
 	}
-	// 获取 userID
+	// 获取当前用户的 ID
 	viewID := c.GetUint64("UserID")
 	// 关注操作
 	if actionType == 1 {
@@ -38,6 +38,7 @@ func RelationAction(c *gin.Context) {
 			return
 		}
 	}
+	// 返回成功并生成响应 json
 	c.JSON(http.StatusOK, Response{StatusCode: 0, StatusMsg: "OK"})
 }
 
@@ -60,9 +61,6 @@ func FollowList(c *gin.Context) {
 		if err == nil {
 			viewerID = claims.UserID
 			isLogin = true
-			//if service.IsUserIDExist(viewerID) {
-			//	isLogin = true
-			//}
 		}
 	}
 	// 获取用户的关注列表
@@ -71,7 +69,7 @@ func FollowList(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "get Follower list failed"})
 		return
 	}
-	// 生成 reponse 数据
+	// 生成 response 数据
 	celebrityIDList := make([]uint64, len(celebrityList))
 	var userList []User
 	for idx, celebrity := range celebrityList {
@@ -92,7 +90,7 @@ func FollowList(c *gin.Context) {
 			userList[idx].IsFollow = isFollow
 		}
 	}
-	// 成功并返回
+	// 返回成功并生成响应 json
 	c.JSON(http.StatusOK, UserListResponse{
 		Response: Response{StatusCode: 0, StatusMsg: "OK"},
 		UserList: userList,
@@ -114,9 +112,6 @@ func FollowerList(c *gin.Context) {
 		if err == nil {
 			viewerID = claims.UserID
 			isLogin = true
-			//if service.IsUserIDExist(viewerID) {
-			//	isLogin = true
-			//}
 		}
 	}
 	// 获取用户的粉丝列表
@@ -125,7 +120,7 @@ func FollowerList(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "get Follower list failed"})
 		return
 	}
-	// 生成 reponse 数据
+	// 生成 response 数据
 	var userList []User
 	for _, follower := range followerList {
 		isFollow := false
@@ -142,7 +137,7 @@ func FollowerList(c *gin.Context) {
 		}
 		userList = append(userList, user)
 	}
-	// 成功并返回
+	// 返回成功并生成响应 json
 	c.JSON(http.StatusOK, UserListResponse{
 		Response: Response{StatusCode: 0, StatusMsg: "OK"},
 		UserList: userList,

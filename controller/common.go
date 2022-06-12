@@ -1,10 +1,12 @@
 package controller
 
+// Response 基础响应结构体
 type Response struct {
 	StatusCode int32  `json:"status_code"`
 	StatusMsg  string `json:"status_msg,omitempty"`
 }
 
+// User 用户信息响应结构体
 type User struct {
 	ID             uint64 `json:"id"`
 	Name           string `json:"name"`
@@ -15,6 +17,7 @@ type User struct {
 	IsFollow       bool   `json:"is_follow"`
 }
 
+// Video 视频信息响应结构体
 type Video struct {
 	ID            uint64 `json:"id"`
 	Author        User   `json:"author"`
@@ -26,6 +29,7 @@ type Video struct {
 	Title         string `json:"title"`
 }
 
+// Comment 评论信息响应结构体
 type Comment struct {
 	ID         uint64 `json:"id,omitempty"`
 	User       User   `json:"user"`

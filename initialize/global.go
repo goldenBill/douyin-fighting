@@ -8,12 +8,12 @@ import (
 )
 
 func Global() {
-	//初始化 ID 生成器
+	// 初始化 ID 生成器
 	startTime, _ := time.Parse("2006-01-02 15:04:05", global.START_TIME)
 	global.ID_GENERATOR = sonyflake.NewSonyflake(sonyflake.Settings{
 		StartTime: startTime,
 	})
-	//创建video存放目录
+	// 创建video存放目录
 	util.CheckPathAndCreate(global.VIDEO_ADDR)
 	util.CheckPathAndCreate(global.COVER_ADDR)
 	// 创建白名单类型

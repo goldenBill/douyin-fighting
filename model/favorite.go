@@ -10,5 +10,5 @@ type Favorite struct {
 	UserID     uint64    `gorm:"column:user_id;NOT NULL;index:idx_01,priority:1"`
 	IsFavorite bool      `gorm:"column:is_favorite;NOT NULL"`
 	CreatedAt  time.Time `gorm:"column:created_at"`
-	UpdatedAt  time.Time `gorm:"column:deleted_at"`
+	UpdatedAt  time.Time `gorm:"column:updated_at"`
 }

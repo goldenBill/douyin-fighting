@@ -1,12 +1,12 @@
 package config
 
-//定义 Gin 配置文件的结构体
+// GinConfig 定义 Gin 配置文件的结构体
 type GinConfig struct {
 	Host string `mapstructure:"host"`
 	Port int    `mapstructure:"port"`
 }
 
-//定义 mysql 配置文件结构体
+// MySQLConfig 定义 mysql 配置文件结构体
 type MySQLConfig struct {
 	Host         string `mapstructure:"host"`
 	Port         int    `mapstructure:"port"`

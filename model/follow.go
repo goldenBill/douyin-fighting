@@ -10,5 +10,5 @@ type Follow struct {
 	FollowerID  uint64    `gorm:"column:follower_id;NOT NULL;index:idx_01,priority:1"`
 	IsFollow    bool      `gorm:"column:is_follow;NOT NULL"`
 	CreatedAt   time.Time `gorm:"column:created_at"`
-	UpdatedAt   time.Time `gorm:"column:deleted_at"`
+	UpdatedAt   time.Time `gorm:"column:updated_at"`
 }
