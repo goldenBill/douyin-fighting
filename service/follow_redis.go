@@ -6,6 +6,8 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/goldenBill/douyin-fighting/global"
 	"github.com/goldenBill/douyin-fighting/model"
+	"math/rand"
+	"time"
 )
 
 func GetFollowStatusFromRedis(followerID, celebrityID uint64) (bool, error) {
@@ -23,7 +25,7 @@ func GetFollowStatusFromRedis(followerID, celebrityID uint64) (bool, error) {
 			return tmp
 			`)
 	keys := []string{followerRelationRedis}
-	values := []interface{}{celebrityID, global.FOLLOW_EXPIRE.Seconds()}
+	values := []interface{}{celebrityID, global.FOLLOW_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
 	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 	if err == nil {
 		return result, nil
@@ -50,7 +52,7 @@ func AddFollowIDListByUserIDToRedis(followerID uint64, celebrityList []model.Fol
 			}
 		}
 		// 设置过期时间
-		pipe.Expire(global.CONTEXT, followerRelationRedis, global.FOLLOW_EXPIRE)
+		pipe.Expire(global.CONTEXT, followerRelationRedis, global.FOLLOW_EXPIRE + global.EXPIRE_TIME_JITTER*time.Duration(rand.Float64()))
 		return nil
 	})
 	return err
@@ -74,7 +76,7 @@ func AddFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{followerRelationRedis}
-		values := []interface{}{celebrityID, global.FOLLOW_EXPIRE.Seconds()}
+		values := []interface{}{celebrityID, global.FOLLOW_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
 		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
@@ -92,7 +94,7 @@ func AddFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{celebrityRelationRedis}
-		values := []interface{}{followerID, global.FOLLOW_EXPIRE.Seconds()}
+		values := []interface{}{followerID, global.FOLLOW_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
 		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
@@ -110,7 +112,7 @@ func AddFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{followerRedis}
-		values := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
 		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
@@ -128,7 +130,7 @@ func AddFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{celebrityRedis}
-		values := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
 		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
@@ -161,7 +163,7 @@ func CancelFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{followerRelationRedis}
-		values := []interface{}{celebrityID, global.FOLLOW_EXPIRE.Seconds()}
+		values := []interface{}{celebrityID, global.FOLLOW_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
 		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
@@ -179,7 +181,7 @@ func CancelFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{celebrityRelationRedis}
-		values := []interface{}{followerID, global.FOLLOW_EXPIRE.Seconds()}
+		values := []interface{}{followerID, global.FOLLOW_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
 		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
@@ -197,7 +199,7 @@ func CancelFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{followerRedis}
-		values := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
 		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
@@ -215,7 +217,7 @@ func CancelFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{celebrityRedis}
-		values := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
 		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
@@ -241,7 +243,7 @@ func GetFollowIDListByUserIDFromRedis(followerID uint64) ([]uint64, error) {
 			return redis.call("ZRangeByScore", KEYS[1], 1, 1)
 			`)
 	keys := []string{followerRelationRedis}
-	values := []interface{}{global.FOLLOW_EXPIRE.Seconds()}
+	values := []interface{}{global.FOLLOW_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
 	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Uint64Slice()
 	if err == nil {
 		return result, nil
@@ -263,7 +265,7 @@ func GetFollowerIDListByUserIDFromRedis(celebrityID uint64) ([]uint64, error) {
 			return redis.call("ZRangeByScore", KEYS[1], 1, 1)
 			`)
 	keys := []string{celebrityRelationRedis}
-	values := []interface{}{global.FOLLOW_EXPIRE.Seconds()}
+	values := []interface{}{global.FOLLOW_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
 	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Uint64Slice()
 	if err == nil {
 		return result, nil
@@ -290,7 +292,7 @@ func AddFollowerIDListByUserIDToRedis(celebrityID uint64, followerList []model.F
 			}
 		}
 		//设置过期时间
-		pipe.Expire(global.CONTEXT, celebrityRelationRedis, global.FOLLOW_EXPIRE)
+		pipe.Expire(global.CONTEXT, celebrityRelationRedis, global.FOLLOW_EXPIRE + global.EXPIRE_TIME_JITTER*time.Duration(rand.Float64()))
 		return nil
 	})
 	return err

@@ -6,6 +6,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/goldenBill/douyin-fighting/global"
 	"github.com/goldenBill/douyin-fighting/model"
+	"math/rand"
 	"strconv"
 	"time"
 )
@@ -23,7 +24,7 @@ func GetUserInfoByUserIDFromRedis(userID uint64) (*model.User, error) {
 		pipe.HGetAll(global.CONTEXT, userRedis)
 		pipe.HGet(global.CONTEXT, userRedis, "created_at").Val()
 		// 设置过期时间
-		pipe.Expire(global.CONTEXT, userRedis, global.USER_INFO_EXPIRE)
+		pipe.Expire(global.CONTEXT, userRedis, global.USER_INFO_EXPIRE + global.EXPIRE_TIME_JITTER*time.Duration(rand.Float64()))
 		return nil
 	})
 	if err != nil {
@@ -53,7 +54,7 @@ func AddUserInfoByUserIDFromCacheToRedis(user *model.User) error {
 		pipe.HSet(global.CONTEXT, userRedis, "favorite_count", user.FavoriteCount)
 		pipe.HSet(global.CONTEXT, userRedis, "created_at", user.CreatedAt.UnixMilli())
 		// 设置过期时间
-		pipe.Expire(global.CONTEXT, userRedis, global.USER_INFO_EXPIRE)
+		pipe.Expire(global.CONTEXT, userRedis, global.USER_INFO_EXPIRE + global.EXPIRE_TIME_JITTER*time.Duration(rand.Float64()))
 		return nil
 	})
 	return err
@@ -95,7 +96,7 @@ func AddUserListByUserIDListsToRedis(userList []model.User) error {
 			pipe.HSet(global.CONTEXT, userRedis, "favorite_count", each.FavoriteCount)
 			pipe.HSet(global.CONTEXT, userRedis, "created_at", each.CreatedAt.UnixMilli())
 			// 设置过期时间
-			pipe.Expire(global.CONTEXT, userRedis, global.USER_INFO_EXPIRE)
+			pipe.Expire(global.CONTEXT, userRedis, global.USER_INFO_EXPIRE + global.EXPIRE_TIME_JITTER*time.Duration(rand.Float64()))
 		}
 		return nil
 	})

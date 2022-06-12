@@ -42,4 +42,5 @@ var (
 	VIDEO_EXPIRE          = 10 * time.Minute
 	PUBLISH_EXPIRE        = 10 * time.Minute
 	EMPTY_EXPIRE          = 10 * time.Minute
+	EXPIRE_TIME_JITTER    = 10 * time.Minute
 )
