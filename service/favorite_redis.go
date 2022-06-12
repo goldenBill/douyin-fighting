@@ -6,6 +6,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/goldenBill/douyin-fighting/global"
 	"github.com/goldenBill/douyin-fighting/model"
+	"math"
 	"math/rand"
 	"time"
 )
@@ -25,7 +26,7 @@ func GetFavoriteStatusFromRedis(userID, videoID uint64) (bool, error) {
 			return tmp
 			`)
 	keys := []string{userFavoriteRedis}
-	values := []interface{}{videoID, global.FAVORITE_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
+	values := []interface{}{videoID, global.FAVORITE_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
 	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 	if err == nil {
 		return result, nil
@@ -52,7 +53,7 @@ func AddFavoriteVideoIDListByUserIDToRedis(userID uint64, favoriteList []model.F
 			}
 		}
 		//设置过期时间
-		pipe.Expire(global.CONTEXT, userFavoriteRedis, global.FAVORITE_EXPIRE + global.EXPIRE_TIME_JITTER*time.Duration(rand.Float64()))
+		pipe.Expire(global.CONTEXT, userFavoriteRedis, global.FAVORITE_EXPIRE+time.Duration(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())*time.Second)
 		return nil
 	})
 	return err
@@ -76,7 +77,7 @@ func AddFavoriteForRedis(videoID, userID, authorID uint64) error {
 				return false
 			`)
 		keys := []string{userFavoriteRedis}
-		values := []interface{}{videoID, global.FAVORITE_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
+		values := []interface{}{videoID, global.FAVORITE_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
 		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
@@ -94,7 +95,7 @@ func AddFavoriteForRedis(videoID, userID, authorID uint64) error {
 				return false
 			`)
 		keys := []string{userRedis}
-		values := []interface{}{global.USER_INFO_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
 		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
@@ -112,7 +113,7 @@ func AddFavoriteForRedis(videoID, userID, authorID uint64) error {
 				return false
 			`)
 		keys := []string{authorRedis}
-		values := []interface{}{global.USER_INFO_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
 		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
@@ -130,7 +131,7 @@ func AddFavoriteForRedis(videoID, userID, authorID uint64) error {
 				return false
 			`)
 		keys := []string{videoRedis}
-		values := []interface{}{global.VIDEO_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
+		values := []interface{}{global.VIDEO_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
 		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
@@ -163,7 +164,7 @@ func CancelFavoriteForRedis(videoID, userID, authorID uint64) error {
 				return false
 			`)
 		keys := []string{userFavoriteRedis}
-		values := []interface{}{videoID, global.FAVORITE_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
+		values := []interface{}{videoID, global.FAVORITE_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
 		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
@@ -181,7 +182,7 @@ func CancelFavoriteForRedis(videoID, userID, authorID uint64) error {
 				return false
 			`)
 		keys := []string{userRedis}
-		values := []interface{}{global.USER_INFO_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
 		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
@@ -199,7 +200,7 @@ func CancelFavoriteForRedis(videoID, userID, authorID uint64) error {
 				return false
 			`)
 		keys := []string{authorRedis}
-		values := []interface{}{global.USER_INFO_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
 		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
@@ -217,7 +218,7 @@ func CancelFavoriteForRedis(videoID, userID, authorID uint64) error {
 				return false
 			`)
 		keys := []string{videoRedis}
-		values := []interface{}{global.VIDEO_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
+		values := []interface{}{global.VIDEO_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
 		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
@@ -243,7 +244,7 @@ func GetFavoriteVideoIDListByUserIDFromRedis(userID uint64) ([]uint64, error) {
 			return redis.call("ZRangeByScore", KEYS[1], 1, 1)
 			`)
 	keys := []string{userFavoriteRedis}
-	values := []interface{}{global.FAVORITE_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
+	values := []interface{}{global.FAVORITE_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
 	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Uint64Slice()
 	if err == nil {
 		return result, nil
@@ -265,7 +266,7 @@ func GetFavoriteCountByVideoIDFromRedis(videoID uint64) (int64, error) {
 				return false
 			`)
 	keys := []string{videoRedis}
-	values := []interface{}{global.VIDEO_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
+	values := []interface{}{global.VIDEO_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
 	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Int64()
 	if err == nil {
 		return result, nil
@@ -287,7 +288,7 @@ func AddFavoriteCountByVideoIDToRedis(videoID uint64, favoriteCount int64) error
 				return false
 			`)
 	keys := []string{videoRedis}
-	values := []interface{}{favoriteCount, global.VIDEO_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
+	values := []interface{}{favoriteCount, global.VIDEO_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
 	err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Err()
 	if err == nil || err == redis.Nil {
 		return nil

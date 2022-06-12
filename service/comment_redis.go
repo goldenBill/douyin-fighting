@@ -5,6 +5,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/goldenBill/douyin-fighting/global"
 	"github.com/goldenBill/douyin-fighting/model"
+	"math"
 	"math/rand"
 	"strconv"
 	"time"
@@ -31,7 +32,7 @@ func AddCommentInRedis(comment *model.Comment) error {
 			`)
 	keys := []string{keyCommentsOfVideo}
 	values := []interface{}{float64(comment.CreatedAt.UnixMilli()) / 1000, comment.CommentID,
-		global.VIDEO_COMMENTS_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
+		global.VIDEO_COMMENTS_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
 	_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 	if err != nil {
 		return err
@@ -48,7 +49,7 @@ func AddCommentInRedis(comment *model.Comment) error {
 				return 0
 			`)
 	keys = []string{keyVideo}
-	values = []interface{}{global.COMMENT_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
+	values = []interface{}{global.COMMENT_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
 	_, err = lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 	if err != nil {
 		return err
@@ -57,7 +58,7 @@ func AddCommentInRedis(comment *model.Comment) error {
 	userIDStr := strconv.FormatUint(comment.UserID, 10)
 	videoIDStr := strconv.FormatUint(comment.VideoID, 10)
 	pipe := global.REDIS.TxPipeline()
-	pipe.Expire(global.CONTEXT, keyComment, global.COMMENT_EXPIRE+global.EXPIRE_TIME_JITTER*time.Duration(rand.Float64()))
+	pipe.Expire(global.CONTEXT, keyComment, global.COMMENT_EXPIRE+time.Duration(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())*time.Second)
 	pipe.HSet(global.CONTEXT, keyComment, "content", comment.Content, "user_id", userIDStr, "video_id", videoIDStr, "created_at", time.Now().UnixMilli())
 	_, err = pipe.Exec(global.CONTEXT)
 	return err
@@ -83,7 +84,7 @@ func DeleteCommentInRedis(videoID uint64, commentID uint64) error {
 				return 0
 			`)
 	keys := []string{keyCommentsOfVideo}
-	values := []interface{}{CommentIDStr, global.VIDEO_COMMENTS_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
+	values := []interface{}{CommentIDStr, global.VIDEO_COMMENTS_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
 	_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 	if err != nil {
 		return err
@@ -100,7 +101,7 @@ func DeleteCommentInRedis(videoID uint64, commentID uint64) error {
 				return 0
 			`)
 	keys = []string{keyVideo}
-	values = []interface{}{global.COMMENT_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
+	values = []interface{}{global.COMMENT_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
 	_, err = lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 	// 删除comment，无需判断key是否存在
 	return global.REDIS.Del(global.CONTEXT, keyComment).Err()
@@ -125,7 +126,7 @@ func GoComment(comment model.Comment) error {
 			`)
 	keys := []string{keyComment}
 	values := []interface{}{comment.VideoID, comment.UserID, comment.Content, comment.CreatedAt.UnixMilli(),
-		global.COMMENT_EXPIRE.Seconds() + global.EXPIRE_TIME_JITTER.Seconds()*rand.Float64()}
+		global.COMMENT_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
 	_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 	return err
 }
