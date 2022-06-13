@@ -88,8 +88,8 @@ func PublishVideo(userID uint64, videoID uint64, videoName string, coverName str
 	return PublishEvent(video, &Z)
 }
 
-// GetPublishedVideosAndAuthorsRedis 按要求拉取feed视频和其作者
-func GetPublishedVideosAndAuthorsRedis(videoList *[]model.Video, authors *[]model.User, userID uint64) (int, error) {
+// GetPublishedVideosRedis 按要求拉取feed视频和其作者
+func GetPublishedVideosRedis(videoList *[]model.Video, userID uint64) (int, error) {
 	keyEmpty := fmt.Sprintf(EmptyPattern, userID)
 	n, err := global.REDIS.Exists(global.CONTEXT, keyEmpty).Result()
 	if n > 0 {
@@ -137,13 +137,6 @@ func GetPublishedVideosAndAuthorsRedis(videoList *[]model.Video, authors *[]mode
 			return 0, err
 		}
 
-		authorIDList := make([]uint64, numVideos)
-		for i, video := range *videoList {
-			authorIDList[i] = video.AuthorID
-		}
-		if err = GetUserListByUserIDs(authorIDList, authors); err != nil {
-			return 0, err
-		}
 		return numVideos, nil
 	}
 	// keyPublish存在
@@ -167,14 +160,7 @@ func GetPublishedVideosAndAuthorsRedis(videoList *[]model.Video, authors *[]mode
 		return 0, err
 	}
 	numVideos = len(*videoList)
-	authorIDList := make([]uint64, numVideos)
-	for i, video := range *videoList {
-		authorIDList[i] = video.AuthorID
-	}
-	if err = GetUserListByUserIDs(authorIDList, authors); err != nil {
-		return 0, err
-	}
-	return len(*videoList), nil
+	return numVideos, nil
 }
 
 // GetVideoListByIDsRedis 给定视频ID列表得到对应的视频信息

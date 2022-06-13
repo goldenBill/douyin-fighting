@@ -5,7 +5,10 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/goldenBill/douyin-fighting/global"
 	"github.com/goldenBill/douyin-fighting/model"
+	"math"
+	"math/rand"
 	"strconv"
+	"time"
 )
 
 func GoPublishRedis(userID uint64, listZ ...*redis.Z) error {
@@ -13,7 +16,7 @@ func GoPublishRedis(userID uint64, listZ ...*redis.Z) error {
 	keyPublish := fmt.Sprintf(PublishPattern, userID)
 	pipe := global.REDIS.TxPipeline()
 	pipe.ZAdd(global.CONTEXT, keyPublish, listZ...)
-	pipe.Expire(global.CONTEXT, keyPublish, global.PUBLISH_EXPIRE)
+	pipe.Expire(global.CONTEXT, keyPublish, global.PUBLISH_EXPIRE+time.Duration(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())*time.Second)
 	_, err := pipe.Exec(global.CONTEXT)
 	return err
 }
@@ -24,7 +27,7 @@ func GoVideoList(videoList []model.Video) error {
 		keyVideo := fmt.Sprintf(VideoPattern, video.VideoID)
 		pipe.HSet(global.CONTEXT, keyVideo, "title", video.Title, "play_name", video.PlayName, "cover_name", video.CoverName,
 			"favorite_count", video.FavoriteCount, "comment_count", video.CommentCount, "author_id", video.AuthorID, "created_at", video.CreatedAt.UnixMilli())
-		pipe.Expire(global.CONTEXT, keyVideo, global.VIDEO_EXPIRE)
+		pipe.Expire(global.CONTEXT, keyVideo, global.VIDEO_EXPIRE+time.Duration(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())*time.Second)
 	}
 	_, err := pipe.Exec(global.CONTEXT)
 	return err
@@ -61,11 +64,11 @@ func PublishEvent(video model.Video, listZ ...*redis.Z) error {
 	pipe := global.REDIS.TxPipeline()
 	pipe.ZAdd(global.CONTEXT, "feed", &redis.Z{Score: float64(video.CreatedAt.UnixMilli()) / 1000, Member: videoIDStr})
 	pipe.ZAdd(global.CONTEXT, keyPublish, listZ...)
-	pipe.Expire(global.CONTEXT, keyPublish, global.PUBLISH_EXPIRE)
+	pipe.Expire(global.CONTEXT, keyPublish, global.PUBLISH_EXPIRE+time.Duration(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())*time.Second)
 
 	pipe.HSet(global.CONTEXT, keyVideo, "author_id", video.AuthorID, "play_name", video.PlayName, "cover_name", video.CoverName,
 		"favorite_count", video.FavoriteCount, "comment_count", video.CommentCount, "title", video.Title, "created_at", video.CreatedAt.UnixMilli())
-	pipe.Expire(global.CONTEXT, keyVideo, global.VIDEO_EXPIRE)
+	pipe.Expire(global.CONTEXT, keyVideo, global.VIDEO_EXPIRE+time.Duration(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())*time.Second)
 	pipe.Del(global.CONTEXT, keyEmpty)
 	_, err := pipe.Exec(global.CONTEXT)
 	return err
@@ -78,7 +81,7 @@ func GoCommentsOfVideo(commentList []model.Comment, keyCommentsOfVideo string) e
 	}
 	pipe := global.REDIS.TxPipeline()
 	pipe.ZAdd(global.CONTEXT, keyCommentsOfVideo, listZ...)
-	pipe.Expire(global.CONTEXT, keyCommentsOfVideo, global.VIDEO_COMMENTS_EXPIRE)
+	pipe.Expire(global.CONTEXT, keyCommentsOfVideo, global.VIDEO_COMMENTS_EXPIRE+time.Duration(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())*time.Second)
 	_, err := pipe.Exec(global.CONTEXT)
 	return err
 }
@@ -95,7 +98,7 @@ func GetCommentCountOfVideo(videoID uint64) (int, error) {
 				return -1
 			`)
 	keys := []string{keyVideo}
-	values := []interface{}{global.VIDEO_COMMENTS_EXPIRE.Seconds()}
+	values := []interface{}{global.VIDEO_COMMENTS_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
 	numComments, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Int()
 	if err != nil {
 		return 0, err
@@ -105,5 +108,5 @@ func GetCommentCountOfVideo(videoID uint64) (int, error) {
 
 func SetUserPublishEmpty(userID uint64) error {
 	keyEmpty := fmt.Sprintf(EmptyPattern, userID)
-	return global.REDIS.Set(global.CONTEXT, keyEmpty, "1", global.EMPTY_EXPIRE).Err()
+	return global.REDIS.Set(global.CONTEXT, keyEmpty, "1", global.EMPTY_EXPIRE+time.Duration(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())*time.Second).Err()
 }

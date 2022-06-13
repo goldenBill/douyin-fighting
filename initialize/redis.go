@@ -14,10 +14,12 @@ func Redis() {
 		DB:       global.CONFIG.RedisConfig.DB,
 		PoolSize: global.CONFIG.RedisConfig.PoolSize,
 	})
+	// 检查 Redis 连通性
 	if _, err := rdb.Ping(global.CONTEXT).Result(); err != nil {
 		panic(err.Error())
 	}
 	global.REDIS = rdb
+	// 主动查询 feed，导入缓存
 	if err := service.GoFeed(); err != nil {
 		panic(err.Error())
 	}

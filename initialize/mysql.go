@@ -15,12 +15,12 @@ import (
 
 func MySQL() {
 
-	username := global.CONFIG.MySQLConfig.Username //账号
-	password := global.CONFIG.MySQLConfig.Password //密码
-	host := global.CONFIG.MySQLConfig.Host         //数据库地址，可以是Ip或者域名
-	port := global.CONFIG.MySQLConfig.Port         //数据库端口
-	dbName := global.CONFIG.MySQLConfig.DBname     //数据库名
-	//dsn := "用户名:密码@tcp(地址:端口)/数据库名"
+	username := global.CONFIG.MySQLConfig.Username // 账号
+	password := global.CONFIG.MySQLConfig.Password // 密码
+	host := global.CONFIG.MySQLConfig.Host         // 数据库地址，可以是Ip或者域名
+	port := global.CONFIG.MySQLConfig.Port         // 数据库端口
+	dbName := global.CONFIG.MySQLConfig.DBname     // 数据库名
+	// dsn := "用户名:密码@tcp(地址:端口)/数据库名"
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", username, password, host, port, dbName)
 
 	// 配置Gorm连接到MySQL
@@ -30,7 +30,7 @@ func MySQL() {
 		SkipInitializeWithVersion: false, // 根据当前 MySQL 版本自动配置
 	}
 	newLogger := logger.New(
-		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer（日志输出的目标，前缀和日志包含的内容——译者注）
+		log.New(os.Stdout, "\r\n", log.LstdFlags),
 		logger.Config{
 			SlowThreshold:             time.Millisecond * 0, // 慢 SQL 阈值
 			LogLevel:                  logger.Info,          // 日志级别
@@ -49,6 +49,7 @@ func MySQL() {
 		panic("connect server failed")
 	}
 
+	// 自动生成对应的数据库表
 	if global.AUTO_CREATE_DB {
 		global.DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&model.User{})
 		global.DB.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&model.Video{})

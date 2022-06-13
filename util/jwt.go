@@ -16,14 +16,13 @@ type UserClaims struct {
 
 // GenerateToken 生成 token
 func GenerateToken(user *model.User) (string, error) {
-	//获取全局签名
+	// 获取全局签名
 	mySigningKey := []byte(global.JWT_SigningKey)
-	//配置 userClaims ,并生成 token
+	// 配置 userClaims ,并生成 token
 	claims := UserClaims{
 		user.UserID,
 		user.Name,
 		jwt.RegisteredClaims{
-			// A usual scenario is to set the expiration time relative to the current time
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
@@ -35,9 +34,9 @@ func GenerateToken(user *model.User) (string, error) {
 
 // ParseToken 解析 token
 func ParseToken(tokenString string) (*UserClaims, error) {
-	//获取全局签名
+	// 获取全局签名
 	mySigningKey := []byte(global.JWT_SigningKey)
-	//解析 token 信息
+	// 解析 token 信息
 	token, err := jwt.ParseWithClaims(tokenString, &UserClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return mySigningKey, nil
 	})

@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-// 定义中间
+// JWT 定义中间件，进行用户权限校验
 func JWT() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString := c.PostForm("token")

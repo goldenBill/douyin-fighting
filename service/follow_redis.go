@@ -6,10 +6,13 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/goldenBill/douyin-fighting/global"
 	"github.com/goldenBill/douyin-fighting/model"
+	"math"
+	"math/rand"
+	"time"
 )
 
 func GetFollowStatusFromRedis(followerID, celebrityID uint64) (bool, error) {
-	//定义 key
+	// 定义 key
 	followerRelationRedis := fmt.Sprintf(FollowerPattern, followerID)
 	lua := redis.NewScript(`
 			if redis.call("Exists", KEYS[1]) <= 0 then
@@ -18,28 +21,28 @@ func GetFollowStatusFromRedis(followerID, celebrityID uint64) (bool, error) {
 			redis.call("Expire", KEYS[1], ARGV[2])
 			local tmp = redis.call("ZScore", KEYS[1], ARGV[1])
 			if not tmp then
-				return {err = "No tracking information"}
+				return {err = "no tracking information"}
 			end
 			return tmp
 			`)
 	keys := []string{followerRelationRedis}
-	vals := []interface{}{celebrityID, global.FOLLOW_EXPIRE.Seconds()}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+	values := []interface{}{celebrityID, global.FOLLOW_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 	if err == nil {
 		return result, nil
 	} else if err == redis.Nil {
-		return false, errors.New("Not found in cache")
+		return false, errors.New("not found in cache")
 	} else {
 		return false, err
 	}
 }
 
 func AddFollowIDListByUserIDToRedis(followerID uint64, celebrityList []model.Follow) error {
-	//定义 key
+	// 定义 key
 	followerRelationRedis := fmt.Sprintf(FollowerPattern, followerID)
-	// Transactional function.
+	// 使用 pipeline
 	_, err := global.REDIS.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
-		//初始化
+		// 初始化
 		pipe.ZAdd(global.CONTEXT, followerRelationRedis, &redis.Z{Score: 2, Member: Header})
 		// 增加点赞关系
 		for _, each := range celebrityList {
@@ -49,8 +52,8 @@ func AddFollowIDListByUserIDToRedis(followerID uint64, celebrityList []model.Fol
 				pipe.ZAdd(global.CONTEXT, followerRelationRedis, &redis.Z{Score: 0, Member: each.CelebrityID})
 			}
 		}
-		//设置过期时间
-		pipe.Expire(global.CONTEXT, followerRelationRedis, global.FOLLOW_EXPIRE)
+		// 设置过期时间
+		pipe.Expire(global.CONTEXT, followerRelationRedis, global.FOLLOW_EXPIRE+time.Duration(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())*time.Second)
 		return nil
 	})
 	return err
@@ -63,7 +66,7 @@ func AddFollowForRedis(followerID, celebrityID uint64) error {
 
 	// 更新 followerRelationRedis 缓存
 	go func() {
-		//定义 key
+		// 定义 key
 		followerRelationRedis := fmt.Sprintf(FollowerPattern, followerID)
 		lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
@@ -74,14 +77,14 @@ func AddFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{followerRelationRedis}
-		vals := []interface{}{celebrityID, global.FOLLOW_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{celebrityID, global.FOLLOW_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
 	// 更新 celebrityRelationRedis 缓存
 	go func() {
-		//定义 key
+		// 定义 key
 		celebrityRelationRedis := fmt.Sprintf(CelebrityPattern, celebrityID)
 		lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
@@ -92,14 +95,14 @@ func AddFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{celebrityRelationRedis}
-		vals := []interface{}{followerID, global.FOLLOW_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{followerID, global.FOLLOW_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
 	// 更新 followerRedis 缓存
 	go func() {
-		//定义 key
+		// 定义 key
 		followerRedis := fmt.Sprintf(UserPattern, followerID)
 		lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
@@ -110,14 +113,14 @@ func AddFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{followerRedis}
-		vals := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
 	// 更新 celebrityRedis 缓存
 	go func() {
-		//定义 key
+		// 定义 key
 		celebrityRedis := fmt.Sprintf(UserPattern, celebrityID)
 		lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
@@ -128,8 +131,8 @@ func AddFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{celebrityRedis}
-		vals := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
@@ -150,7 +153,7 @@ func CancelFollowForRedis(followerID, celebrityID uint64) error {
 
 	// 更新 followerRelationRedis 缓存
 	go func() {
-		//定义 key
+		// 定义 key
 		followerRelationRedis := fmt.Sprintf(FollowerPattern, followerID)
 		lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
@@ -161,14 +164,14 @@ func CancelFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{followerRelationRedis}
-		vals := []interface{}{celebrityID, global.FOLLOW_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{celebrityID, global.FOLLOW_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
 	// 更新 celebrityRelationRedis 缓存
 	go func() {
-		//定义 key
+		// 定义 key
 		celebrityRelationRedis := fmt.Sprintf(CelebrityPattern, celebrityID)
 		lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
@@ -179,14 +182,14 @@ func CancelFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{celebrityRelationRedis}
-		vals := []interface{}{followerID, global.FOLLOW_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{followerID, global.FOLLOW_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
 	// 更新 followerRedis 缓存
 	go func() {
-		//定义 key
+		// 定义 key
 		followerRedis := fmt.Sprintf(UserPattern, followerID)
 		lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
@@ -197,14 +200,14 @@ func CancelFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{followerRedis}
-		vals := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
 	// 更新 celebrityRedis 缓存
 	go func() {
-		//定义 key
+		// 定义 key
 		celebrityRedis := fmt.Sprintf(UserPattern, celebrityID)
 		lua := redis.NewScript(`
 				if redis.call("Exists", KEYS[1]) > 0 then
@@ -215,8 +218,8 @@ func CancelFollowForRedis(followerID, celebrityID uint64) error {
 				return false
 			`)
 		keys := []string{celebrityRedis}
-		vals := []interface{}{global.USER_INFO_EXPIRE.Seconds()}
-		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Bool()
+		values := []interface{}{global.USER_INFO_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
+		_, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Bool()
 		ch <- err
 	}()
 
@@ -231,7 +234,7 @@ func CancelFollowForRedis(followerID, celebrityID uint64) error {
 }
 
 func GetFollowIDListByUserIDFromRedis(followerID uint64) ([]uint64, error) {
-	//定义 key
+	// 定义 key
 	followerRelationRedis := fmt.Sprintf(FollowerPattern, followerID)
 	lua := redis.NewScript(`
 			if redis.call("Exists", KEYS[1]) <= 0 then
@@ -241,19 +244,19 @@ func GetFollowIDListByUserIDFromRedis(followerID uint64) ([]uint64, error) {
 			return redis.call("ZRangeByScore", KEYS[1], 1, 1)
 			`)
 	keys := []string{followerRelationRedis}
-	vals := []interface{}{global.FOLLOW_EXPIRE.Seconds()}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Uint64Slice()
+	values := []interface{}{global.FOLLOW_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Uint64Slice()
 	if err == nil {
 		return result, nil
 	} else if err == redis.Nil {
-		return nil, errors.New("Not found in cache")
+		return nil, errors.New("not found in cache")
 	} else {
 		return nil, err
 	}
 }
 
 func GetFollowerIDListByUserIDFromRedis(celebrityID uint64) ([]uint64, error) {
-	//定义 key
+	// 定义 key
 	celebrityRelationRedis := fmt.Sprintf(CelebrityPattern, celebrityID)
 	lua := redis.NewScript(`
 			if redis.call("Exists", KEYS[1]) <= 0 then
@@ -263,21 +266,21 @@ func GetFollowerIDListByUserIDFromRedis(celebrityID uint64) ([]uint64, error) {
 			return redis.call("ZRangeByScore", KEYS[1], 1, 1)
 			`)
 	keys := []string{celebrityRelationRedis}
-	vals := []interface{}{global.FOLLOW_EXPIRE.Seconds()}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Uint64Slice()
+	values := []interface{}{global.FOLLOW_EXPIRE.Seconds() + math.Floor(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())}
+	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, values).Uint64Slice()
 	if err == nil {
 		return result, nil
 	} else if err == redis.Nil {
-		return nil, errors.New("Not found in cache")
+		return nil, errors.New("not found in cache")
 	} else {
 		return nil, err
 	}
 }
 
 func AddFollowerIDListByUserIDToRedis(celebrityID uint64, followerList []model.Follow) error {
-	//定义 key
+	// 定义 key
 	celebrityRelationRedis := fmt.Sprintf(CelebrityPattern, celebrityID)
-	// Transactional function.
+	// 使用 pipeline
 	_, err := global.REDIS.TxPipelined(global.CONTEXT, func(pipe redis.Pipeliner) error {
 		//初始化
 		pipe.ZAdd(global.CONTEXT, celebrityRelationRedis, &redis.Z{Score: 2, Member: Header})
@@ -290,92 +293,8 @@ func AddFollowerIDListByUserIDToRedis(celebrityID uint64, followerList []model.F
 			}
 		}
 		//设置过期时间
-		pipe.Expire(global.CONTEXT, celebrityRelationRedis, global.FOLLOW_EXPIRE)
+		pipe.Expire(global.CONTEXT, celebrityRelationRedis, global.FOLLOW_EXPIRE+time.Duration(rand.Float64()*global.EXPIRE_TIME_JITTER.Seconds())*time.Second)
 		return nil
 	})
 	return err
-}
-
-func GetFollowCountByUserIDFromRedis(userID uint64) (int64, error) {
-	//定义 key
-	userRedis := fmt.Sprintf(UserPattern, userID)
-	lua := redis.NewScript(`
-				if redis.call("Exists", KEYS[1]) > 0 then
-					redis.call("Expire", KEYS[1], ARGV[1])
-					return redis.call("HGet", KEYS[1], "follow_count")
-				end
-				return false
-			`)
-	keys := []string{userRedis}
-	vals := []interface{}{global.USER_INFO_EXPIRE}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Int64()
-	if err == nil {
-		return result, nil
-	} else if err == redis.Nil {
-		return 0, errors.New("Not found in cache")
-	} else {
-		return 0, err
-	}
-}
-
-func AddFollowCountByUserIDToRedis(userID uint64, followCount int64) error {
-	//定义 key
-	userRedis := fmt.Sprintf(UserPattern, userID)
-	lua := redis.NewScript(`
-				if redis.call("Exists", KEYS[1]) > 0 then
-					redis.call("Expire", KEYS[1], ARGV[2])
-					return redis.call("HSet", KEYS[1], "follow_count", ARGV[1])
-				end
-				return false
-			`)
-	keys := []string{userRedis}
-	vals := []interface{}{followCount, global.USER_INFO_EXPIRE}
-	err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Err()
-	if err == nil || err == redis.Nil {
-		return nil
-	} else {
-		return err
-	}
-}
-
-func GetFollowerCountByUserIDFromRedis(userID uint64) (int64, error) {
-	//定义 key
-	userRedis := fmt.Sprintf(UserPattern, userID)
-	lua := redis.NewScript(`
-				if redis.call("Exists", KEYS[1]) > 0 then
-					redis.call("Expire", KEYS[1], ARGV[1])
-					return redis.call("HGet", KEYS[1], "follower_count")
-				end
-				return false
-			`)
-	keys := []string{userRedis}
-	vals := []interface{}{global.USER_INFO_EXPIRE}
-	result, err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Int64()
-	if err == nil {
-		return result, nil
-	} else if err == redis.Nil {
-		return 0, errors.New("Not found in cache")
-	} else {
-		return 0, err
-	}
-}
-
-func AddFollowerCountByUserIDToRedis(userID uint64, followerCount int64) error {
-	//定义 key
-	userRedis := fmt.Sprintf(UserPattern, userID)
-	lua := redis.NewScript(`
-				if redis.call("Exists", KEYS[1]) > 0 then
-					redis.call("Expire", KEYS[1], ARGV[2])
-					return redis.call("HSet", KEYS[1], "follower_count", ARGV[1])
-				end
-				return false
-			`)
-	keys := []string{userRedis}
-	vals := []interface{}{followerCount, global.USER_INFO_EXPIRE}
-	err := lua.Run(global.CONTEXT, global.REDIS, keys, vals).Err()
-	if err == nil || err == redis.Nil {
-		return nil
-	} else {
-		return err
-	}
 }

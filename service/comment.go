@@ -29,8 +29,8 @@ func DeleteComment(userID uint64, videoID uint64, commentID uint64) error {
 	comment.CommentID = commentID
 	return global.DB.Transaction(func(tx *gorm.DB) error {
 		// user_id与video_id用来确保有权限删除（用户只能删除自己的视频）
-		if err := tx.Where("user_id = ? and video_id = ?", userID, videoID).Delete(&comment).Error; err != nil {
-			return err
+		if result := tx.Where("user_id = ? and video_id = ?", userID, videoID).Delete(&comment); result.Error != nil || result.RowsAffected == 0 {
+			return errors.New("invalid delete")
 		}
 		if err := DeleteCommentInRedis(videoID, commentID); err != nil {
 			return err

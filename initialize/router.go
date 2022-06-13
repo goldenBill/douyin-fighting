@@ -10,7 +10,7 @@ import (
 
 func Router() {
 	r := gin.Default()
-	// public directory is used to serve static resources
+	// 静态文件存放目录
 	r.Static("/static", "./public")
 
 	apiRouter := r.Group("/douyin")
@@ -29,7 +29,7 @@ func Router() {
 	apiRouter.GET("/relation/follow/list/", controller.FollowList)
 	apiRouter.GET("/relation/follower/list/", controller.FollowerList)
 
-	// 需要 token 验证的路由
+	// 用户权限校验
 	authed := apiRouter.Group("/")
 	authed.Use(middleware.JWT())
 	{
@@ -44,6 +44,7 @@ func Router() {
 		authed.POST("/relation/action/", controller.RelationAction)
 	}
 
+	// 用户权限校验 + 文件格式大小检车
 	authed2 := apiRouter.Group("/")
 	authed2.Use(middleware.JWT())
 	authed2.Use(middleware.FileCheck())

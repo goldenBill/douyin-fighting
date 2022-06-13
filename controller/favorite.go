@@ -16,13 +16,13 @@ type FavoriteActionRequest struct {
 	ActionType uint   `form:"action_type" json:"action_type"`
 }
 
-// FavoriteListRequest 请求点赞列表结构体
+// FavoriteListRequest 点赞列表请求结构体
 type FavoriteListRequest struct {
 	UserID uint64 `form:"user_id"`
 	Token  string `form:"token"`
 }
 
-// FavoriteAction no practical effect, just check if token is valid
+// FavoriteAction 点赞操作
 func FavoriteAction(c *gin.Context) {
 	// 参数绑定
 	var r FavoriteActionRequest
@@ -33,11 +33,10 @@ func FavoriteAction(c *gin.Context) {
 	}
 	// 判断 action_type 是否正确
 	if r.ActionType != 1 && r.ActionType != 2 {
-		// action_type 不合法
 		c.JSON(http.StatusBadRequest, Response{StatusCode: 1, StatusMsg: "action type error"})
 		return
 	}
-	// 获取 userID
+	// 获取当前用户的 ID
 	r.UserID = c.GetUint64("UserID")
 	// 点赞操作
 	if r.ActionType == 1 {
@@ -49,11 +48,11 @@ func FavoriteAction(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "server error"})
 		return
 	}
-	//返回成功并生成响应 json
+	// 返回成功并生成响应 json
 	c.JSON(http.StatusOK, Response{StatusCode: 0})
 }
 
-// FavoriteList all users have same favorite video list
+// FavoriteList 返回用户喜欢的视频列表
 func FavoriteList(c *gin.Context) {
 	// 参数绑定
 	var r FavoriteListRequest
@@ -76,18 +75,15 @@ func FavoriteList(c *gin.Context) {
 		if err == nil {
 			userID = claims.UserID
 			isLogin = true
-			//if service.IsUserIDExist(userID) {
-			//	isLogin = true
-			//}
 		}
 	}
-	//获取用户的点赞列表
+	// 获取用户的点赞列表
 	videoModelList, err := service.GetFavoriteListByUserID(r.UserID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "get favorite list failed"})
 		return
 	}
-	//产生相应结构体
+	// 产生相应结构体
 	celebrityIDList := make([]uint64, len(videoModelList))
 	videoIDList := make([]uint64, len(videoModelList))
 	var videoList []Video
@@ -120,7 +116,7 @@ func FavoriteList(c *gin.Context) {
 	}
 	// 批量处理
 	if isLogin {
-		// 登录时，获取是否关注，否则总是为false
+		// 登录时，获取是否关注以及是否点赞，否则总是为false
 		isFollowList, _ := service.GetFollowStatusList(userID, celebrityIDList)
 		isFavoriteList, _ := service.GetFavoriteStatusList(userID, videoIDList)
 		for i := 0; i < len(videoModelList); i++ {
@@ -128,7 +124,7 @@ func FavoriteList(c *gin.Context) {
 			videoList[i].IsFavorite = isFavoriteList[i]
 		}
 	}
-	//返回成功并生成响应 json
+	// 返回成功并生成响应 json
 	c.JSON(http.StatusOK, VideoListResponse{
 		Response: Response{
 			StatusCode: 0,

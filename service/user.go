@@ -40,25 +40,25 @@ func Login(username string, password string) (user *model.User, err error) {
 
 // UserInfoByUserID 通过 UserID 获取用户信息
 func UserInfoByUserID(userID uint64) (user *model.User, err error) {
-	//查询redis
+	// 查询缓存
 	user, err = GetUserInfoByUserIDFromRedis(userID)
 	if err == nil {
 		return
-	} else if err.Error() != "Not found in cache" {
+	} else if err.Error() != "not found in cache" {
 		return nil, err
 	}
-	//检查 userID 是否存在；若存在，获取用户信息
+	// 检查 userID 是否存在；若存在，获取用户信息
 	result := global.DB.Where("user_id = ?", userID).Limit(1).Find(&user)
-	//user.FollowCount, _ = GetFollowCountByUserID(user.UserID)
+	// 查询关注数目
 	global.DB.Model(&model.Follow{}).Where("follower_id = ? and is_follow = ?", user.UserID, true).
 		Count(&user.FollowCount)
-	//user.FollowerCount, _ = GetFollowerCountByUserID(user.UserID)
+	// 查询粉丝数目
 	global.DB.Model(&model.Follow{}).Where("celebrity_id = ? and is_follow = ?", user.UserID, true).
 		Count(&user.FollowerCount)
-	//user.FavoriteCount, _ = GetFavoriteCountByUserID(user.UserID)
+	// 查询点赞数目
 	global.DB.Model(&model.Favorite{}).Where("user_id = ? and is_favorite = ?", user.UserID, true).
 		Count(&user.FavoriteCount)
-	//user.TotalFavorited, _ = GetTotalFavoritedByUserID(user.UserID)
+	// 查询总点赞数目
 	var publishVideoIDList []uint64
 	_ = GetVideoIDListByUserID(user.UserID, &publishVideoIDList)
 	favoriteCountList, _ := GetFavoriteCountListByVideoIDList(publishVideoIDList)
@@ -71,7 +71,7 @@ func UserInfoByUserID(userID uint64) (user *model.User, err error) {
 		err = errors.New("username does not exist")
 		return
 	}
-	//更新 redis
+	// 更新缓存
 	if err = AddUserInfoByUserIDFromCacheToRedis(user); err != nil {
 		return nil, err
 	}
@@ -81,9 +81,9 @@ func UserInfoByUserID(userID uint64) (user *model.User, err error) {
 
 // GetUserListByUserIDList 根据 UserIDList 获取对应的用户列表
 func GetUserListByUserIDList(UserIDList []uint64) ([]model.User, error) {
-	//查询redis
+	// 查询缓存
 	userList, notInCache, err := GetUserListByUserIDListFromRedis(UserIDList)
-	if err != nil && err.Error() != "Not found in cache" {
+	if err != nil && err.Error() != "not found in cache" {
 		return nil, err
 	} else if err == nil {
 		return userList, nil
@@ -96,16 +96,16 @@ func GetUserListByUserIDList(UserIDList []uint64) ([]model.User, error) {
 	// 针对查询结果建立映射关系
 	mapUserIDToUser := make(map[uint64]model.User, len(uniqueUserList))
 	for idx, user := range uniqueUserList {
-		//uniqueUserList[idx].FollowCount, _ = GetFollowCountByUserID(user.UserID)
+		// 查询关注数目
 		global.DB.Model(&model.Follow{}).Where("follower_id = ? and is_follow = ?", user.UserID, true).
 			Count(&uniqueUserList[idx].FollowCount)
-		//uniqueUserList[idx].FollowerCount, _ = GetFollowerCountByUserID(user.UserID)
+		// 查询粉丝数目
 		global.DB.Model(&model.Follow{}).Where("celebrity_id = ? and is_follow = ?", user.UserID, true).
 			Count(&uniqueUserList[idx].FollowerCount)
-		//uniqueUserList[idx].FavoriteCount, _ = GetFavoriteCountByUserID(user.UserID)
+		// 查询点赞数目
 		global.DB.Model(&model.Favorite{}).Where("user_id = ? and is_favorite = ?", user.UserID, true).
 			Count(&uniqueUserList[idx].FavoriteCount)
-		//uniqueUserList[idx].TotalFavorited, _ = GetTotalFavoritedByUserID(user.UserID)
+		// 查询总点赞数目
 		var publishVideoIDList []uint64
 		_ = GetVideoIDListByUserID(user.UserID, &publishVideoIDList)
 		favoriteCountList, _ := GetFavoriteCountListByVideoIDList(publishVideoIDList)
@@ -116,11 +116,11 @@ func GetUserListByUserIDList(UserIDList []uint64) ([]model.User, error) {
 		uniqueUserList[idx].TotalFavorited = totalFavorited
 		mapUserIDToUser[user.UserID] = uniqueUserList[idx]
 	}
-	//更新 redis
+	// 更新缓存
 	if err = AddUserListByUserIDListsToRedis(uniqueUserList); err != nil {
 		return nil, err
 	}
-	//后续操作
+	// 后续操作，返回用户列表
 	for idx, each := range userList {
 		if user, ok := mapUserIDToUser[each.UserID]; ok {
 			userList[idx] = user
@@ -135,31 +135,3 @@ func GetUserListByUserIDs(UserIDs []uint64, userList *[]model.User) (err error) 
 	*userList = userListPrototype
 	return
 }
-
-//// GetUserListByUserIDs 根据UserIDs获取对应的用户列表
-//func GetUserListByUserIDs(UserIDs []uint64, userList *[]model.User) (err error) {
-//	var uniqueUserList []model.User
-//	result := global.DB.Where("user_id in ?", UserIDs).Find(&uniqueUserList)
-//	if result.Error != nil {
-//		err = errors.New("query GetUserListByUserIDs error")
-//		return
-//	}
-//	// 针对查询结果建立映射关系
-//	mapUserIDToUser := make(map[uint64]model.User)
-//	*userList = make([]model.User, len(UserIDs))
-//	for idx, user := range uniqueUserList {
-//		mapUserIDToUser[user.UserID] = uniqueUserList[idx]
-//	}
-//	// 构造返回值
-//	for idx, userID := range UserIDs {
-//		(*userList)[idx] = mapUserIDToUser[userID]
-//	}
-//	return
-//}
-
-//// IsUserIDExist 判断 userID 是否有效
-//func IsUserIDExist(userID uint64) bool {
-//	var count int64
-//	global.DB.Model(&model.User{}).Where("user_id = ?", userID).Count(&count)
-//	return count != 0
-//}
