@@ -35,8 +35,15 @@
 - ffmpeg
 
 ## 1.4 使用说明
-安装配置 MySQL、Redis、ffmpeg 以及 go 运行环境，确保可以在命令行运行
-```shell
+- 安装配置Golang、MySQL、Redis 和 ffmpeg
+- 启动服务
+```bash
+# 克隆 github 项目最新版本
+git clone -b redis-enhance https://github.com/goldenBill/douyin-fighting.git --depth=1
+
+# 编译运行项目
+cd douyin-fighting
+chmod u+x run.sh
 ./run.sh
 ```
 
