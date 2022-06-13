@@ -33,7 +33,7 @@ func Publish(c *gin.Context) {
 
 	data, err := c.FormFile("data")
 	if err != nil {
-		c.JSON(http.StatusOK, Response{
+		c.JSON(http.StatusInternalServerError, Response{
 			StatusCode: 1,
 			StatusMsg:  err.Error(),
 		})
@@ -97,9 +97,9 @@ func PublishList(c *gin.Context) {
 	// 获取 authorID
 	authorID, err := strconv.ParseUint(c.Query("user_id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{
+		c.JSON(http.StatusOK, Response{
 			StatusCode: 1,
-			StatusMsg:  err.Error(),
+			StatusMsg:  "user_id不合法",
 		})
 		return
 	}
@@ -107,7 +107,7 @@ func PublishList(c *gin.Context) {
 	var videoList []model.Video
 	numVideos, err := service.GetPublishedVideosRedis(&videoList, authorID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, Response{
+		c.JSON(http.StatusInternalServerError, Response{
 			StatusCode: 1,
 			StatusMsg:  err.Error(),
 		})
