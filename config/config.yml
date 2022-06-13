@@ -2,6 +2,9 @@ gin:
   host: 0.0.0.0
   port: 8080
 
+jwt:
+  signing_key: douyin-fighting
+
 mysql:
   host: localhost
   port: 3306

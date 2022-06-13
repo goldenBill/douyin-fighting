@@ -18,7 +18,7 @@ type VideoListResponse struct {
 	VideoList []Video `json:"video_list"`
 }
 
-// Publish check token then save upload file to public directory
+// Publish 投稿接口
 func Publish(c *gin.Context) {
 	// 获取 userID
 	userID := c.GetUint64("UserID")
@@ -33,14 +33,13 @@ func Publish(c *gin.Context) {
 
 	data, err := c.FormFile("data")
 	if err != nil {
-		// 状态码不确定
-		c.JSON(http.StatusOK, Response{
+		c.JSON(http.StatusInternalServerError, Response{
 			StatusCode: 1,
 			StatusMsg:  err.Error(),
 		})
 		return
 	}
-
+	// 生成唯一ID
 	videoID, err := global.ID_GENERATOR.NextID()
 	if err != nil {
 		// 无法生成ID
@@ -75,10 +74,11 @@ func Publish(c *gin.Context) {
 		return
 	}
 
+	// 写入数据库
 	err = service.PublishVideo(userID, videoID, videoName, coverName, title)
 
 	if err != nil {
-		// 无法写库
+		// 无法写入数据库
 		c.JSON(http.StatusInternalServerError, Response{
 			StatusCode: 1,
 			StatusMsg:  err.Error(),
@@ -92,15 +92,30 @@ func Publish(c *gin.Context) {
 	})
 }
 
-// PublishList all users have same publish video list
+// PublishList 发布列表接口
 func PublishList(c *gin.Context) {
-	var err error
 	// 获取 authorID
-	authorID, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
-
+	authorID, err := strconv.ParseUint(c.Query("user_id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusOK, Response{
+			StatusCode: 1,
+			StatusMsg:  "user_id不合法",
+		})
+		return
+	}
+	// 得到用户发布过的视频
 	var videoList []model.Video
-	var authorList []model.User
-	numVideos, err := service.GetPublishedVideosAndAuthorsRedis(&videoList, &authorList, authorID)
+	numVideos, err := service.GetPublishedVideosRedis(&videoList, authorID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, Response{
+			StatusCode: 1,
+			StatusMsg:  err.Error(),
+		})
+		return
+	}
+	// 作者相同，无需重复查询
+	var author *model.User
+	author, err = service.UserInfoByUserID(authorID)
 	if err != nil {
 		//访问数据库出错
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
@@ -108,7 +123,7 @@ func PublishList(c *gin.Context) {
 	}
 	if numVideos == 0 {
 		//没有满足条件的视频
-		c.JSON(http.StatusOK, FeedResponse{
+		c.JSON(http.StatusOK, VideoListResponse{
 			Response:  Response{StatusCode: 0},
 			VideoList: nil,
 		})
@@ -118,7 +133,6 @@ func PublishList(c *gin.Context) {
 	var (
 		videoJsonList  []Video
 		videoJson      Video
-		author         model.User
 		authorJson     User
 		isFavoriteList []bool
 		isFollowList   []bool
@@ -136,7 +150,7 @@ func PublishList(c *gin.Context) {
 	}
 
 	if isLogged {
-		// 当用户登录时 一次性获取用户是否点赞了列表中的视频以及是否关注了视频的作者
+		// 当用户登录时 批量获取用户是否点赞了列表中的视频以及是否关注了视频的作者
 		videoIDList := make([]uint64, numVideos)
 		authorIDList := make([]uint64, numVideos)
 		for i, video := range videoList {
@@ -176,7 +190,6 @@ func PublishList(c *gin.Context) {
 			continue
 		}
 
-		author = authorList[i]
 		authorJson.ID = author.UserID
 		authorJson.Name = author.Name
 		authorJson.FollowCount = author.FollowCount

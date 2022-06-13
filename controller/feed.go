@@ -19,7 +19,7 @@ type FeedResponse struct {
 	NextTime  int64   `json:"next_time,omitempty"`
 }
 
-// Feed video list for every request
+// Feed 视频流接口（给客户端推送短视频）
 func Feed(c *gin.Context) {
 	// 不传latest_time默认为当前时间
 	var CurrentTimeInt = time.Now().UnixMilli()
@@ -27,28 +27,32 @@ func Feed(c *gin.Context) {
 	var LatestTimeStr = c.DefaultQuery("latest_time", CurrentTime)
 	LatestTime, err := strconv.ParseInt(LatestTimeStr, 10, 64)
 	if err != nil {
-		//无法解析latest_time
+		// 无法解析latest_time
 		c.JSON(http.StatusBadRequest, Response{StatusCode: 1, StatusMsg: "parameter latest_time is wrong"})
 		return
 	}
-
+	// 得到本次要返回的视频以及其作者
 	var videoList []model.Video
 	var authorList []model.User
 	numVideos, err := service.GetFeedVideosAndAuthorsRedis(&videoList, &authorList, LatestTime, global.FEED_NUM)
 
 	if err != nil {
-		//访问数据库出错
+		// 访问数据库出错
 		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
 	if numVideos == 0 {
-		//没有满足条件的视频
-		c.JSON(http.StatusOK, FeedResponse{
-			Response:  Response{StatusCode: 0},
-			VideoList: nil,
-			NextTime:  CurrentTimeInt, // 没有视频可刷时返回当前时间
-		})
-		return
+		// 没有满足条件的视频 使用当前时间再获取一遍
+		numVideos, _ = service.GetFeedVideosAndAuthorsRedis(&videoList, &authorList, CurrentTimeInt, global.FEED_NUM)
+		if numVideos == 0 {
+			// 后端没有视频了
+			c.JSON(http.StatusOK, FeedResponse{
+				Response:  Response{StatusCode: 0},
+				VideoList: nil,
+				NextTime:  CurrentTimeInt, // 没有视频可刷时返回当前时间
+			})
+			return
+		}
 	}
 
 	var (
@@ -73,7 +77,7 @@ func Feed(c *gin.Context) {
 	}
 
 	if isLogged {
-		// 当用户登录时 一次性获取用户是否点赞了列表中的视频以及是否关注了视频的作者
+		// 当用户登录时 批量获取用户是否点赞了列表中的视频以及是否关注了视频的作者
 		videoIDList := make([]uint64, numVideos)
 		authorIDList := make([]uint64, numVideos)
 		for i, video := range videoList {

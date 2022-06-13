@@ -11,7 +11,8 @@ import (
 	"time"
 )
 
-func GoPublishRedis(userID uint64, listZ ...*redis.Z) error {
+// GoPublish 将用户发表过的视频写入缓存中
+func GoPublish(userID uint64, listZ ...*redis.Z) error {
 	//定义 key
 	keyPublish := fmt.Sprintf(PublishPattern, userID)
 	pipe := global.REDIS.TxPipeline()
@@ -21,6 +22,7 @@ func GoPublishRedis(userID uint64, listZ ...*redis.Z) error {
 	return err
 }
 
+// GoVideoList 将视频批量写入缓存
 func GoVideoList(videoList []model.Video) error {
 	pipe := global.REDIS.TxPipeline()
 	for _, video := range videoList {
@@ -33,6 +35,7 @@ func GoVideoList(videoList []model.Video) error {
 	return err
 }
 
+// GoFeed 确保feed在缓存中
 func GoFeed() error {
 	n, err := global.REDIS.Exists(global.CONTEXT, "feed").Result()
 	if err != nil {
@@ -56,6 +59,7 @@ func GoFeed() error {
 	return nil
 }
 
+// PublishEvent 用户上视频的缓存操作
 func PublishEvent(video model.Video, listZ ...*redis.Z) error {
 	keyPublish := fmt.Sprintf(PublishPattern, video.AuthorID)
 	keyVideo := fmt.Sprintf(VideoPattern, video.VideoID)

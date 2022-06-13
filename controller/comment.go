@@ -38,8 +38,8 @@ type CommentListResponse struct {
 	CommentList []Comment `json:"comment_list,omitempty"`
 }
 
-// CommentAction no practical effect, just check if token is valid
-// 1. 确保操作类型正确 2. 确保video_id正确 3. 确保当前用户有权限删除
+// CommentAction 评论操作接口
+// 1. 确保操作类型正确 2. 确保当前用户有权限删除
 func CommentAction(c *gin.Context) {
 	// 参数绑定
 	var r CommentActionRequest
@@ -70,7 +70,7 @@ func CommentAction(c *gin.Context) {
 		commentID, err := global.ID_GENERATOR.NextID()
 		if err != nil {
 			// 生成ID失败
-			c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "生成评论ID失败"})
+			c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 			return
 		}
 		commentModel := model.Comment{
@@ -125,12 +125,12 @@ func CommentAction(c *gin.Context) {
 	c.JSON(http.StatusOK, Response{StatusCode: 0})
 }
 
-// CommentList all videos have same demo comment list
+// CommentList 评论列表接口
 func CommentList(c *gin.Context) {
 	// 参数绑定
 	var r CommentListRequest
 	if err := c.ShouldBind(&r); err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: "bind error"})
+		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: "bind error"})
 		return
 	}
 
@@ -138,7 +138,7 @@ func CommentList(c *gin.Context) {
 	var userModelList []model.User
 	// 获取评论列表以及对应的作者
 	if err := service.GetCommentListAndUserListRedis(r.VideoID, &commentModelList, &userModelList); err != nil {
-		c.JSON(http.StatusOK, Response{StatusCode: 1, StatusMsg: err.Error()})
+		c.JSON(http.StatusInternalServerError, Response{StatusCode: 1, StatusMsg: err.Error()})
 		return
 	}
 

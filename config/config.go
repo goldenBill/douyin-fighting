@@ -26,9 +26,15 @@ type RedisConfig struct {
 	PoolSize int    `mapstructure:"pool_size"`
 }
 
+// JWTConfig 定义 jwt 配置文件结构体
+type JWTConfig struct {
+	SigningKey string `mapstructure:"signing_key"`
+}
+
 // System 定义项目配置文件结构体
 type System struct {
 	GinConfig   *GinConfig   `mapstructure:"gin"`
 	MySQLConfig *MySQLConfig `mapstructure:"mysql"`
 	RedisConfig *RedisConfig `mapstructure:"redis"`
+	JWTConfig   *JWTConfig   `mapstructure:"jwt"`
 }
