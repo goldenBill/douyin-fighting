@@ -94,7 +94,7 @@ func GetCommentListAndUserListRedis(videoID uint64, commentList *[]model.Comment
 	numComments := len(commentIDStrList)
 	*commentList = make([]model.Comment, 0, numComments)
 	authorIDList := make([]uint64, 0, numComments)
-
+	// 查询评论信息
 	for _, commentIDStr := range commentIDStrList {
 		commentID, err := strconv.ParseUint(commentIDStr, 10, 64)
 		keyComment := fmt.Sprintf(CommentPattern, commentID)

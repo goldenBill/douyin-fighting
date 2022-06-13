@@ -10,8 +10,9 @@ import (
 	"time"
 )
 
-// GetFeedVideosAndAuthorsRedis 返回视频数
+// GetFeedVideosAndAuthorsRedis 获取推送视频以及其作者并返回视频数
 func GetFeedVideosAndAuthorsRedis(videoList *[]model.Video, authors *[]model.User, LatestTime int64, MaxNumVideo int) (int, error) {
+	// 确保feed在redis中
 	if err := GoFeed(); err != nil {
 		return 0, err
 	}
@@ -22,7 +23,7 @@ func GetFeedVideosAndAuthorsRedis(videoList *[]model.Video, authors *[]model.Use
 		Offset: 0,                                                           // 类似sql的limit, 表示开始偏移量
 		Count:  int64(MaxNumVideo),                                          // 一次返回多少数据
 	}
-
+	// 获取推送视频ID按逆序返回
 	videoIDStrList, err := global.REDIS.ZRevRangeByScore(global.CONTEXT, "feed", &op).Result()
 	numVideos := len(videoIDStrList)
 	if err != nil || numVideos == 0 {
@@ -41,6 +42,7 @@ func GetFeedVideosAndAuthorsRedis(videoList *[]model.Video, authors *[]model.Use
 		return 0, err
 	}
 	numVideos = len(*videoList)
+	// 批量或者视频作者
 	authorIDList := make([]uint64, numVideos)
 	for i, video := range *videoList {
 		authorIDList[i] = video.AuthorID
@@ -48,9 +50,10 @@ func GetFeedVideosAndAuthorsRedis(videoList *[]model.Video, authors *[]model.Use
 	if err = GetUserListByUserIDs(authorIDList, authors); err != nil {
 		return 0, err
 	}
-	return len(*videoList), nil
+	return numVideos, nil
 }
 
+// PublishVideo 将用户上传的视频信息写入数据库
 func PublishVideo(userID uint64, videoID uint64, videoName string, coverName string, title string) error {
 	video := model.Video{
 		VideoID:   videoID,
@@ -72,7 +75,7 @@ func PublishVideo(userID uint64, videoID uint64, videoName string, coverName str
 	}
 
 	if n <= 0 {
-		//	keyPublish不存在
+		//	keyPublish不存在 查询mysql将用户发布过的视频全部写入缓存中
 		var videoList []model.Video
 		if err = global.DB.Where("author_id = ?", userID).Find(&videoList).Error; err != nil {
 			return err
@@ -83,18 +86,18 @@ func PublishVideo(userID uint64, videoID uint64, videoName string, coverName str
 		}
 		return PublishEvent(video, listZ...)
 	}
-	// keyPublish存在
-	Z := redis.Z{Score: float64(video.CreatedAt.UnixMilli()) / 1000, Member: video.VideoID}
+	// keyPublish存在 只添加当前上传的视频
+	Z := redis.Z{Score: float64(video.CreatedAt.UnixMilli()) / 1000, Member: videoID}
 	return PublishEvent(video, &Z)
 }
 
-// GetPublishedVideosRedis 按要求拉取feed视频和其作者
+// GetPublishedVideosRedis 获取用户上传的视频列表
 func GetPublishedVideosRedis(videoList *[]model.Video, userID uint64) (int, error) {
 	keyEmpty := fmt.Sprintf(EmptyPattern, userID)
 	n, err := global.REDIS.Exists(global.CONTEXT, keyEmpty).Result()
-	if n > 0 {
+	if n > 0 || err != nil {
 		// 当前用户没有发布过视频
-		return 0, nil
+		return 0, err
 	}
 	keyPublish := fmt.Sprintf(PublishPattern, userID)
 	n, err = global.REDIS.Exists(global.CONTEXT, keyPublish).Result()
@@ -119,7 +122,7 @@ func GetPublishedVideosRedis(videoList *[]model.Video, userID uint64) (int, erro
 			listZ = append(listZ, &redis.Z{Score: float64(video_.CreatedAt.UnixMilli()) / 1000, Member: video_.VideoID})
 			videoIDList = append(videoIDList, video_.VideoID)
 		}
-		// 批量查找favorite_count
+		// 批量查找favorite_count与comment_count
 		favoriteCountList, err := GetFavoriteCountListByVideoIDList(videoIDList)
 		if err != nil {
 			return 0, err
@@ -132,8 +135,8 @@ func GetPublishedVideosRedis(videoList *[]model.Video, userID uint64) (int, erro
 			(*videoList)[i].FavoriteCount = favoriteCountList[i]
 			(*videoList)[i].CommentCount = commentCountList[i]
 		}
-		// 写入publish：userid
-		if err = GoPublishRedis(userID, listZ...); err != nil {
+		// 将用户发表过的视频列表写入缓存
+		if err = GoPublish(userID, listZ...); err != nil {
 			return 0, err
 		}
 
@@ -176,6 +179,7 @@ func GetVideoListByIDsRedis(videoList *[]model.Video, videoIDs []uint64) error {
 			return err
 		}
 		if n <= 0 {
+			// 当前视频不在缓存中
 			*videoList = append(*videoList, model.Video{})
 			inCache = append(inCache, false)
 			notInCacheIDList = append(notInCacheIDList, videoID)
@@ -203,6 +207,7 @@ func GetVideoListByIDsRedis(videoList *[]model.Video, videoIDs []uint64) error {
 		inCache = append(inCache, true)
 	}
 	if len(notInCacheIDList) == 0 {
+		// 视频全部在缓存中则提前返回
 		return nil
 	}
 	// 批量查找不在redis的video
@@ -218,7 +223,6 @@ func GetVideoListByIDsRedis(videoList *[]model.Video, videoIDs []uint64) error {
 			idxNotInCache++
 		}
 	}
-
 	return nil
 }
 
@@ -251,12 +255,20 @@ func GetVideoListByIDsSql(videoList *[]model.Video, videoIDs []uint64) error {
 		tmpVideo.CommentCount = commentCountList[i]
 		*videoList = append(*videoList, tmpVideo)
 	}
+	// 当视频信息写入缓存
 	return GoVideoList(*videoList)
 }
 
+// GetVideoIDListByUserID 得到用户发表过的视频id列表
 func GetVideoIDListByUserID(userID uint64, videoIDList *[]uint64) error {
+	keyEmpty := fmt.Sprintf(EmptyPattern, userID)
+	n, err := global.REDIS.Exists(global.CONTEXT, keyEmpty).Result()
+	if n > 0 || err != nil {
+		// 当前用户没有发布过视频
+		return err
+	}
 	keyPublish := fmt.Sprintf(VideoCommentsPattern, userID)
-	n, err := global.REDIS.Exists(global.CONTEXT, keyPublish).Result()
+	n, err = global.REDIS.Exists(global.CONTEXT, keyPublish).Result()
 	if err != nil {
 		return err
 	}
@@ -280,17 +292,18 @@ func GetVideoIDListByUserID(userID uint64, videoIDList *[]uint64) error {
 		for _, video := range videoList {
 			listZ = append(listZ, &redis.Z{Score: float64(video.CreatedAt.UnixMilli()) / 1000, Member: video.VideoID})
 		}
-		return GoPublishRedis(userID, listZ...)
+		// 写入缓存
+		return GoPublish(userID, listZ...)
 	}
 	// "publish userid"存在
 	if err = global.REDIS.Expire(global.CONTEXT, keyPublish, global.PUBLISH_EXPIRE).Err(); err != nil {
 		return err
 	}
+	// 逆序 最新的放在前面
 	videoIDStrList, err := global.REDIS.ZRevRange(global.CONTEXT, keyPublish, 0, -1).Result()
 	numVideos := len(videoIDStrList)
 	*videoIDList = make([]uint64, 0, numVideos)
 	for _, videoIDStr := range videoIDStrList {
-		// 逆序 最新的放在前面
 		videoID, err := strconv.ParseUint(videoIDStr, 10, 64)
 		if err != nil {
 			continue
